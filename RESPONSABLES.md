@@ -7,8 +7,8 @@ Tabla de responsables para la Evaluación 1. Cada integrante responde por los í
 | Back End | BE1, BE2, BE3 | Cristóbal Soto |
 | Base de Datos | BD1, BD2, BD3, BD4 | Alonso Venegas |
 | UI/UX (front end) | UI1, UI2, UI3 | Pablo Medina |
-| Gestión | GE1, GE2, GE3, GE4 | Simón Canales (Scrum Master) y Ricardo Muñoz (Integración) |
-| Calidad | CA1, CA2 | Simón Canales |
+| Gestión | GE1, GE2, GE3, GE4 | Simón Canales |
+| Calidad | CA1, CA2 | Simón Canales (QA) y Ricardo Muñoz (Integración) |
 
 ## Evidencias por rol
 
