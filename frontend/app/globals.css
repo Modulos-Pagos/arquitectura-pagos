@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+/*
+ * Tokens del estándar visual Ticket-U (documento "Checklist de Consistencia Visual").
+ * Los números entre paréntesis corresponden a la fila del documento.
+ */
+@theme {
+  /* Colores base (1-4) */
+  --color-ticket-primary: #2F4374;
+  --color-ticket-secondary: #6B7A9A;
+  --color-ticket-bg: #FFFFFF;
+  --color-ticket-card: #F8F9FA;
+  --color-ticket-border: #D8DFF0;
+  --color-ticket-banner: #EEF1F8;
+  /* Hover de botones: 10% más oscuro que el primario (16) */
+  --color-ticket-hover: #2A3C68;
+
+  /* Colores de estado (5, 18) */
+  --color-ticket-exito: #1A6640;
+  --color-ticket-exito-bg: #E2F4EA;
+  --color-ticket-peligro: #B3261E;
+  --color-ticket-peligro-bg: #FDF0F2;
+  --color-ticket-info: #2F4374;
+  --color-ticket-info-bg: #EEF1F8;
+  --color-ticket-inactivo-bg: #F0F0F5;
+
+  /* Sombras (23) */
+  --shadow-tarjeta: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-modal: 0 8px 24px rgba(0, 0, 0, 0.15);
+
+  /* Tipografías (7-8) */
+  --font-sans: var(--font-inter), sans-serif;
+  --font-heading: var(--font-poppins), sans-serif;
+}
+
+@layer base {
+  /* Interlineado estándar (11) */
+  body {
+    line-height: 1.5;
+  }
+  h1,
+  h2,
+  h3 {
+    line-height: 1.2;
+  }
+
+  /* Foco visible al navegar con teclado (26) */
+  :focus-visible {
+    outline: 2px solid var(--color-ticket-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* Campos de tarjeta de Stripe Elements con el mismo estilo que los inputs (17) */
+.StripeElement--focus {
+  border-color: var(--color-ticket-primary);
+  box-shadow: 0 0 0 2px var(--color-ticket-primary);
+}
+
+.StripeElement--invalid {
+  border-color: var(--color-ticket-peligro);
+}

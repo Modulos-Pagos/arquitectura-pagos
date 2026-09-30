@@ -1,0 +1,180 @@
+openapi: 3.0.3
+info:
+  title: Pagos — Servicios externos que INVOCA el módulo
+  version: 1.0.0
+  description: |
+    Definición de los servicios de **otros squads** y de la **API externa** que el módulo de Pagos invoca (ítem BE2).
+    El código de invocación está en:
+    - `src/integraciones/entradas.client.ts` → módulo **Entradas/Inventario**
+    - `src/integraciones/pasarela/stripe.pasarela.ts` → **Stripe** (pasarela de pago externa)
+
+    ### Dependencias según la tabla TITEC 2026-2
+    | Dato que Pagos recibe | Módulo de origen | Servicio invocado | Issue de integración |
+    |---|---|---|---|
+    | Orden de compra: `cantidad_entradas`, `total` | Entradas/Inventario | `GET /api/v1/entradas/reservas/{id_reserva}` | INT-01 |
+
+    La ruta y el formato de respuesta de Entradas deben quedar confirmados en el Swagger del equipo Entradas.
+    El cliente es tolerante: acepta `total` o `monto`, y `cantidad_entradas` o `cantidad`.
+servers:
+  - url: http://entradas-service:3000
+    description: Entradas/Inventario (red Docker del curso; configurable con ENTRADAS_BASE_URL)
+  - url: https://api.stripe.com
+    description: Stripe API (modo test)
+tags:
+  - name: Entradas/Inventario
+  - name: Stripe
+paths:
+  /api/v1/entradas/reservas/{id_reserva}:
+    get:
+      tags: [Entradas/Inventario]
+      summary: '[Entradas] Obtener la orden de compra de una reserva'
+      description: |
+        Pagos la invoca en `POST /api/v1/pagos/transacciones`, antes de crear el cobro, para verificar que
+        `total`, `cantidad_entradas` e `id_evento` coinciden con lo registrado por Entradas.
+        Se reenvía el mismo header `Authorization` recibido. Timeout: `ENTRADAS_TIMEOUT_MS` (500 ms por defecto,
+        para respetar el SLA de 2000 ms).
+      servers:
+        - url: http://entradas-service:3000
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: id_reserva, in: path, required: true, schema: { type: string }, example: res-98765 }
+      responses:
+        '200':
+          description: Orden de compra de la reserva.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id_reserva, cantidad_entradas, total]
+                properties:
+                  id_reserva: { type: string, example: res-98765 }
+                  id_evento: { type: string, example: evt-2026-fiesta-ici }
+                  cantidad_entradas: { type: integer, example: 2 }
+                  total: { type: integer, description: 'CLP, ya con descuentos aplicados', example: 15000 }
+                  estado: { type: string, example: RESERVADA }
+        '404':
+          description: La reserva no existe → Pagos responde 422 RESERVA_NO_ENCONTRADA.
+        '5XX':
+          description: Error de Entradas → Pagos responde 503 ENTRADAS_NO_DISPONIBLE.
+
+  /v1/checkout/sessions:
+    post:
+      tags: [Stripe]
+      summary: '[Stripe] Crear sesión de Checkout'
+      description: 'https://docs.stripe.com/api/checkout/sessions/create — `currency=clp`, `unit_amount` = total (CLP sin decimales).'
+      servers:
+        - url: https://api.stripe.com
+      security:
+        - stripeKey: []
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                mode: { type: string, example: payment }
+                client_reference_id: { type: string, description: id_pago }
+                expires_at: { type: integer, description: 'epoch (≥ 30 min)' }
+                success_url: { type: string }
+                cancel_url: { type: string }
+                'line_items[0][price_data][currency]': { type: string, example: clp }
+                'line_items[0][price_data][unit_amount]': { type: integer, example: 15000 }
+                'metadata[id_pago]': { type: string }
+      responses:
+        '200':
+          description: Sesión creada (`id`, `url`, `expires_at`).
+  /v1/checkout/sessions/{id}:
+    get:
+      tags: [Stripe]
+      summary: '[Stripe] Consultar sesión (respaldo del webhook en el polling)'
+      servers:
+        - url: https://api.stripe.com
+      security:
+        - stripeKey: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: '`status` (open/complete/expired), `payment_status` (paid/unpaid), `payment_intent`.'
+  /v1/checkout/sessions/{id}/expire:
+    post:
+      tags: [Stripe]
+      summary: '[Stripe] Expirar sesión (anular pago PENDIENTE)'
+      servers:
+        - url: https://api.stripe.com
+      security:
+        - stripeKey: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Sesión expirada.
+  /v1/payment_intents:
+    post:
+      tags: [Stripe]
+      summary: '[Stripe] Crear PaymentIntent (metodo formulario, Stripe Elements)'
+      description: 'https://docs.stripe.com/api/payment_intents/create — `currency=clp`, `amount` = total, `payment_method_types[]=card`. Devuelve `client_secret` para el front.'
+      servers:
+        - url: https://api.stripe.com
+      security:
+        - stripeKey: []
+      responses:
+        '200':
+          description: PaymentIntent creado (`id`, `client_secret`, `status`).
+  /v1/payment_intents/{id}:
+    get:
+      tags: [Stripe]
+      summary: '[Stripe] Consultar PaymentIntent (succeeded → APROBADO)'
+      servers:
+        - url: https://api.stripe.com
+      security:
+        - stripeKey: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: '`status` (requires_payment_method, succeeded, canceled...).'
+  /v1/payment_intents/{id}/cancel:
+    post:
+      tags: [Stripe]
+      summary: '[Stripe] Cancelar PaymentIntent (anular pago PENDIENTE del formulario)'
+      servers:
+        - url: https://api.stripe.com
+      security:
+        - stripeKey: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: PaymentIntent cancelado.
+  /v1/refunds:
+    post:
+      tags: [Stripe]
+      summary: '[Stripe] Crear reembolso (pago APROBADO)'
+      servers:
+        - url: https://api.stripe.com
+      security:
+        - stripeKey: []
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                payment_intent: { type: string }
+                amount: { type: integer }
+                reason: { type: string, example: requested_by_customer }
+      responses:
+        '200':
+          description: Reembolso creado (`id`, `status`).
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    stripeKey:
+      type: http
+      scheme: bearer
+      description: STRIPE_SECRET_KEY (sk_test_...)

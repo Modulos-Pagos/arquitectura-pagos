@@ -1,0 +1,532 @@
+openapi: 3.0.3
+info:
+  title: Microservicio de Pagos — TicketU (TITEC 2026-2)
+  version: 2.2.0
+  description: |
+    Servicios **propios** del módulo de Pagos (ítem BE1) y servicios que **otros módulos consumen** (ítem BE3).
+
+    ### Datos que genera y envía el módulo (tabla de dependencias TITEC 2026-2)
+    | Dato | Se envía a | Servicio |
+    |---|---|---|
+    | `id_pago` | Entradas | `POST /transacciones`, `GET /{id_pago}` |
+    | `estado_pago` | Entradas | `POST /transacciones`, `GET /{id_pago}` |
+    | `fecha_creacion` (de la compra) | Entradas | `POST /transacciones`, `GET /{id_pago}` |
+    | `id_pago` | Promociones | `GET /api/v1/pagos` (filtros por usuario/reserva/estado) |
+
+    ### Dato que recibe
+    Orden de compra (`cantidad_entradas`, `total`) desde **Entradas**: llega en el body de `POST /transacciones`
+    (`id_evento` y `cantidad_entradas` se usan para validar la orden y describir el cobro; no se almacenan)
+    y además se verifica invocando el servicio de Entradas (ver `/api-docs/consumidos`, ítem BE2).
+
+    ### Flujo acordado con Entradas (contrato v2.1, MVP con polling)
+    1. Entradas llama `POST /transacciones` → recibe `id_pago`, `estado_pago = PENDIENTE` y `url_checkout` en < 2000 ms.
+    2. El usuario paga en la `url_checkout` (Stripe Checkout).
+    3. Stripe avisa por webhook; Entradas consulta `GET /{id_pago}` cada pocos segundos hasta `APROBADO` o `RECHAZADO`.
+    4. Si la reserva de Entradas expiró (hold vencido), Entradas llama `POST /{id_pago}/reembolso`.
+
+    Evolución planificada: publicar el evento `pago.aprobado` en el broker (RabbitMQ) en vez de polling.
+
+    ### Estados del pago
+    `PENDIENTE` → `APROBADO` | `RECHAZADO` | `ANULADO`; `APROBADO` → `REEMBOLSADO`.
+    `ANULADO` = se canceló antes de cobrar. `REEMBOLSADO` = se cobró y se devolvió el dinero.
+
+    ### Política de autorización
+    Todos los endpoints (excepto `/health` y el webhook) exigen `Authorization: Bearer <JWT emitido por Auth>`.
+    En `POST /transacciones` también se acepta el mismo JWT en el campo `token_sesion` del body (contrato de Entradas v1.0).
+    El `id_usuario` se toma del token (claim `id_usuario` o `sub`), nunca del body.
+
+    | Operación | Comprador (dueño) | Otro usuario | Rol `SERVICIO` / `ADMIN` |
+    |---|---|---|---|
+    | Crear transacción | Sí (queda a su nombre) | No aplica | Sí |
+    | Consultar pago | Sí, solo los suyos | No (403) | Sí |
+    | Listar pagos | Sí, solo los suyos | No (403) | Sí, todos (Promociones) |
+    | Anular / reembolsar | Sí, solo los suyos | No (403) | Sí (Entradas) |
+    | Webhook Stripe | — sin JWT: se valida la firma `Stripe-Signature` | | |
+
+    ### Formato de error (todas las respuestas 4xx/5xx)
+    `{ "error": "CODIGO", "mensaje": "texto", "detalles": [ ... ] }`
+  contact:
+    name: Equipo Pagos — TITEC 2026-2
+servers:
+  - url: http://localhost:3000
+    description: Local
+tags:
+  - name: Entradas (consumidor)
+    description: Servicios que usa el módulo Entradas/Inventario (BE3)
+  - name: Promociones (consumidor)
+    description: Servicios que usa el módulo Promociones (BE3)
+  - name: Usuario / Front de Pagos
+    description: Servicios para la interfaz de checkout y los pagos del comprador
+  - name: Stripe (webhook)
+    description: Aviso asíncrono de la pasarela externa
+  - name: Operación
+    description: Salud del servicio
+security:
+  - bearerAuth: []
+
+paths:
+  /api/v1/pagos/transacciones:
+    post:
+      tags: [Entradas (consumidor)]
+      operationId: crearTransaccion
+      summary: Crear la intención de pago de una reserva (idempotente por id_reserva)
+      description: |
+        **Historias:** HU 1.1 (redirección a checkout seguro), HU 1.3 (integración con pasarela).
+
+        Crea el pago en estado `PENDIENTE` y una sesión de Stripe Checkout. Responde en menos de 2000 ms.
+
+        **Idempotencia:** si Entradas reintenta con el mismo `id_reserva` y los mismos datos, se responde **200**
+        con el pago ya existente (misma `url_checkout`), sin crear un segundo cobro. Si el `id_reserva` ya existe
+        con datos distintos, se responde **409**.
+
+        Antes de cobrar, el total y la cantidad se verifican contra el servicio de Entradas (`ENTRADAS_MODO=http`).
+
+        **Métodos de pago (`metodo`):**
+        - `formulario` (por defecto): `url_checkout` apunta al **front de Pagos** (`{FRONTEND_URL}/?id_pago=...`).
+          Entradas redirige ahí al usuario; el front obtiene monto y `client_secret` con `GET /{id_pago}/checkout`
+          y cobra con Stripe Elements. Los datos de la tarjeta van directo del navegador a Stripe.
+        - `checkout`: `url_checkout` apunta a la página de pago alojada por Stripe (Stripe Checkout).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CrearTransaccionRequest' }
+            examples:
+              entradas_v1:
+                summary: Request de Entradas (contrato v1.0, token en el body)
+                value: { id_reserva: 'res-98765', total: 15000, cantidad_entradas: 2, token_sesion: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' }
+              completo:
+                summary: Con header Authorization e id_evento
+                value: { id_reserva: 'res-98765', id_evento: 'evt-2026-fiesta-ici', total: 15000, cantidad_entradas: 2 }
+      responses:
+        '201':
+          description: Pago creado. El usuario debe ser redirigido a `url_checkout`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransaccionCreada' }
+        '200':
+          description: Reintento idempotente — la reserva ya tenía este mismo pago; se devuelve el existente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransaccionCreada' }
+        '400': { $ref: '#/components/responses/ErrorValidacion' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '409':
+          description: La reserva ya tiene un pago con datos distintos (`CONFLICTO_IDEMPOTENCIA`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: CONFLICTO_IDEMPOTENCIA, mensaje: 'La reserva res-98765 ya tiene un pago registrado con datos distintos' }
+        '422':
+          description: |
+            La orden no coincide con la registrada en Entradas (`ORDEN_INCONSISTENTE`)
+            o Entradas no reconoce la reserva (`RESERVA_NO_ENCONTRADA`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error: ORDEN_INCONSISTENTE
+                mensaje: La orden no coincide con la reserva registrada en Entradas
+                detalles: ['total recibido 15000 ≠ total en Entradas 12000']
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+        '502': { $ref: '#/components/responses/ErrorPasarela' }
+        '503': { $ref: '#/components/responses/EntradasNoDisponible' }
+
+  /api/v1/pagos/{id_pago}:
+    get:
+      tags: [Entradas (consumidor), Usuario / Front de Pagos]
+      operationId: obtenerPago
+      summary: Consultar el estado de un pago (polling)
+      description: |
+        **Historias:** HU 1.6 (confirmación de pago a Entradas), HU 1.4 (rechazos y errores).
+
+        Entradas consulta este endpoint cada pocos segundos hasta obtener un estado final.
+        Si el pago sigue `PENDIENTE`, el servicio consulta además a Stripe y actualiza el estado
+        (respaldo por si el webhook no llegó).
+      parameters:
+        - $ref: '#/components/parameters/IdPago'
+      responses:
+        '200':
+          description: Estado actual del pago.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pago' }
+        '400': { $ref: '#/components/responses/ErrorValidacion' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/NoAutorizado' }
+        '404': { $ref: '#/components/responses/PagoNoEncontrado' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+
+  /api/v1/pagos/{id_pago}/checkout:
+    get:
+      tags: [Usuario / Front de Pagos]
+      operationId: datosCheckout
+      summary: Datos para que el front de Pagos cobre un pago existente
+      description: |
+        **Historias:** HU 1.1. El front abre `url_checkout` (`/?id_pago=...`) y llama este endpoint para obtener
+        el monto y el `client_secret` del PaymentIntent. Si el pago ya no está PENDIENTE, `client_secret` es `null`.
+        Solo el comprador dueño del pago o un rol SERVICIO/ADMIN.
+      parameters:
+        - $ref: '#/components/parameters/IdPago'
+      responses:
+        '200':
+          description: Pago con su client_secret (si corresponde).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Pago'
+                  - type: object
+                    properties:
+                      client_secret: { type: string, nullable: true, example: pi_3Q2w_secret_abc }
+        '400': { $ref: '#/components/responses/ErrorValidacion' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/NoAutorizado' }
+        '404': { $ref: '#/components/responses/PagoNoEncontrado' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+
+  /api/v1/pagos/{id_pago}/reembolso:
+    post:
+      tags: [Entradas (consumidor)]
+      operationId: reembolsarPago
+      summary: Anular (si está PENDIENTE) o reembolsar (si está APROBADO) un pago
+      description: |
+        **Historias:** HU 3.1 (reembolso total), HU 3.3 (reversión cuando Entradas libera la reserva).
+
+        Acordado con Entradas: si su tiempo de reserva (hold) venció y el usuario pagó tarde, Entradas llama
+        este endpoint con un token de rol `SERVICIO`.
+        - `PENDIENTE` → se expira la sesión de Stripe y el pago queda `ANULADO` (no se cobra).
+        - `APROBADO` → se crea un reembolso total en Stripe y el pago queda `REEMBOLSADO`.
+        - `ANULADO`/`REEMBOLSADO` → **200** con `ya_procesado: true` (reintento idempotente).
+        - `RECHAZADO` → **409** (`PAGO_NO_REEMBOLSABLE`), no hubo cobro.
+      parameters:
+        - $ref: '#/components/parameters/IdPago'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReembolsoRequest' }
+            example: { motivo: 'Hold de la reserva vencido: el usuario pagó fuera de plazo' }
+      responses:
+        '200':
+          description: Pago anulado o reembolsado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReembolsoResponse' }
+        '400': { $ref: '#/components/responses/ErrorValidacion' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/NoAutorizado' }
+        '404': { $ref: '#/components/responses/PagoNoEncontrado' }
+        '409':
+          description: El pago está `RECHAZADO` (`PAGO_NO_REEMBOLSABLE`) o cambió de estado en paralelo (`CAMBIO_CONCURRENTE`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: PAGO_NO_REEMBOLSABLE, mensaje: 'Un pago en estado RECHAZADO no se puede anular ni reembolsar' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+        '502': { $ref: '#/components/responses/ErrorPasarela' }
+
+  /api/v1/pagos:
+    get:
+      tags: [Promociones (consumidor), Usuario / Front de Pagos]
+      operationId: listarPagos
+      summary: Listar pagos por usuario, reserva o estado
+      description: |
+        **Historias:** HU 3.4 (historial de pagos del usuario).
+        **Integración:** entrega `id_pago` al módulo **Promociones** (tabla de dependencias), por ejemplo para
+        asociar el uso de un código de descuento a un pago aprobado de un usuario.
+
+        - Con rol `SERVICIO`/`ADMIN` se pueden consultar pagos de cualquier usuario.
+        - Un comprador solo ve sus propios pagos (si envía otro `id_usuario` recibe 403).
+      parameters:
+        - { name: id_usuario, in: query, required: false, schema: { type: string, maxLength: 64 }, description: 'Filtra por comprador' }
+        - { name: id_reserva, in: query, required: false, schema: { type: string, maxLength: 64 }, description: 'Filtra por reserva' }
+        - { name: estado, in: query, required: false, schema: { $ref: '#/components/schemas/EstadoPago' }, description: 'Filtra por estado' }
+        - { name: pagina, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limite, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: Página de pagos, del más reciente al más antiguo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ListadoPagos' }
+        '400': { $ref: '#/components/responses/ErrorValidacion' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/NoAutorizado' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+
+  /api/v1/pagos/webhooks/stripe:
+    post:
+      tags: [Stripe (webhook)]
+      operationId: webhookStripe
+      summary: Recibir eventos de Stripe (pago completado, expirado o fallido)
+      description: |
+        **Historias:** HU 1.3, HU 1.4. Endpoint llamado **por Stripe**, no por otros módulos.
+        No usa JWT: se valida la firma HMAC del header `Stripe-Signature` con `STRIPE_WEBHOOK_SECRET`.
+
+        Eventos procesados:
+        | Evento de Stripe | Efecto |
+        |---|---|
+        | `checkout.session.completed` (payment_status = paid) | `PENDIENTE` → `APROBADO` |
+        | `checkout.session.async_payment_succeeded` | `PENDIENTE` → `APROBADO` |
+        | `checkout.session.async_payment_failed` | `PENDIENTE` → `RECHAZADO` |
+        | `checkout.session.expired` | `PENDIENTE` → `RECHAZADO` |
+        | `payment_intent.succeeded` (formulario) | `PENDIENTE` → `APROBADO` |
+        | `payment_intent.canceled` (formulario) | `PENDIENTE` → `RECHAZADO` |
+
+        Cada evento se guarda en `eventos_webhook_stripe`; si Stripe reintenta el mismo evento se responde 200 con `duplicado: true`.
+        En desarrollo (`PASARELA=mock`) se aceptan eventos sin firma para simular pagos desde Postman.
+      security:
+        - stripeSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventoStripe' }
+      responses:
+        '200':
+          description: Evento recibido (procesado o duplicado).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookResponse' }
+        '400':
+          description: Firma inválida o cuerpo mal formado (`FIRMA_WEBHOOK_INVALIDA`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+
+  /health:
+    get:
+      tags: [Operación]
+      operationId: health
+      summary: Estado del servicio y de la conexión a la base de datos
+      security: []
+      responses:
+        '200':
+          description: Servicio operativo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+        '503':
+          description: Sin conexión a la base de datos.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'Token emitido por el módulo Auth (HS256). Claims usados: id_usuario (o sub) y rol.'
+    stripeSignature:
+      type: apiKey
+      in: header
+      name: Stripe-Signature
+      description: Firma HMAC-SHA256 que Stripe agrega a cada webhook.
+
+  parameters:
+    IdPago:
+      name: id_pago
+      in: path
+      required: true
+      description: Identificador del pago (UUID) entregado al crear la transacción.
+      schema: { type: string, format: uuid }
+      example: 3f2b8c1e-6a4d-4e2f-9b1a-7c5d8e9f0a12
+
+  schemas:
+    EstadoPago:
+      type: string
+      enum: [PENDIENTE, APROBADO, RECHAZADO, ANULADO, REEMBOLSADO]
+      example: PENDIENTE
+
+    CrearTransaccionRequest:
+      type: object
+      required: [id_reserva, total, cantidad_entradas]
+      properties:
+        id_reserva: { type: string, maxLength: 64, description: 'Id de la reserva en Entradas (llave de idempotencia)', example: res-98765 }
+        id_evento: { type: string, maxLength: 64, description: 'Opcional. Id del evento; si no viene, se toma del servicio de Entradas cuando está disponible. No se almacena.', example: evt-2026-fiesta-ici }
+        total: { type: integer, minimum: 1, maximum: 99999999, description: 'Monto total en CLP, sin decimales', example: 15000 }
+        cantidad_entradas: { type: integer, minimum: 1, maximum: 100, example: 2 }
+        metodo:
+          type: string
+          enum: [formulario, checkout]
+          default: formulario
+          description: '`formulario` = url_checkout lleva al front de Pagos (Stripe Elements). `checkout` = url_checkout lleva a la página de Stripe.'
+        token_sesion:
+          type: string
+          description: |
+            Opcional, compatibilidad con el contrato de Entradas v1.0. JWT emitido por Auth enviado en el body
+            en vez del header `Authorization`. Se valida igual que el header; si vienen ambos, manda el header.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    TransaccionCreada:
+      type: object
+      required: [id_pago, id_reserva, estado_pago, fecha_creacion, url_checkout]
+      properties:
+        id_pago: { type: string, format: uuid, example: 3f2b8c1e-6a4d-4e2f-9b1a-7c5d8e9f0a12 }
+        id_reserva: { type: string, example: res-98765 }
+        estado_pago: { $ref: '#/components/schemas/EstadoPago' }
+        fecha_creacion: { type: string, format: date-time, example: '2026-09-30T19:40:00.000Z' }
+        url_checkout:
+          type: string
+          nullable: true
+          description: URL a la que Entradas redirige al usuario para pagar (front de Pagos o Stripe Checkout). `null` si el pago ya no está PENDIENTE.
+          example: http://localhost:5173/?id_pago=3f2b8c1e-6a4d-4e2f-9b1a-7c5d8e9f0a12
+        metodo: { type: string, enum: [checkout, formulario], example: checkout }
+        client_secret:
+          type: string
+          nullable: true
+          description: Solo con metodo `formulario` y estado PENDIENTE. Se usa en el front con Stripe Elements.
+          example: null
+        fecha_expiracion: { type: string, format: date-time, nullable: true, example: '2026-09-30T20:11:00.000Z' }
+
+    Pago:
+      type: object
+      properties:
+        id_pago: { type: string, format: uuid }
+        id_reserva: { type: string, example: res-98765 }
+        id_usuario: { type: string, example: usr-123 }
+        estado_pago: { $ref: '#/components/schemas/EstadoPago' }
+        metodo: { type: string, enum: [checkout, formulario] }
+        monto: { type: integer, example: 15000 }
+        moneda: { type: string, example: CLP }
+        motivo_rechazo: { type: string, nullable: true, example: null }
+        url_checkout: { type: string, nullable: true, description: 'Solo mientras está PENDIENTE' }
+        fecha_creacion: { type: string, format: date-time }
+        fecha_actualizacion: { type: string, format: date-time }
+        fecha_expiracion: { type: string, format: date-time, nullable: true }
+
+    ListadoPagos:
+      type: object
+      properties:
+        datos:
+          type: array
+          items: { $ref: '#/components/schemas/Pago' }
+        paginacion:
+          type: object
+          properties:
+            pagina: { type: integer, example: 1 }
+            limite: { type: integer, example: 20 }
+            total: { type: integer, example: 42 }
+            total_paginas: { type: integer, example: 3 }
+
+    ReembolsoRequest:
+      type: object
+      required: [motivo]
+      properties:
+        motivo: { type: string, minLength: 3, maxLength: 255, example: 'Hold de la reserva vencido' }
+
+    ReembolsoResponse:
+      type: object
+      properties:
+        id_pago: { type: string, format: uuid }
+        estado_pago: { $ref: '#/components/schemas/EstadoPago' }
+        accion: { type: string, enum: [ANULADO, REEMBOLSADO] }
+        ya_procesado: { type: boolean, description: 'true si el pago ya estaba anulado/reembolsado' }
+        reembolso:
+          type: object
+          nullable: true
+          description: Solo cuando se reembolsó un pago APROBADO.
+          properties:
+            id_reembolso: { type: string, format: uuid }
+            monto: { type: integer, example: 15000 }
+            motivo: { type: string }
+            estado_reembolso: { type: string, enum: [PENDIENTE, EXITOSO, FALLIDO] }
+            fecha_creacion: { type: string, format: date-time }
+        fecha_actualizacion: { type: string, format: date-time }
+
+    EventoStripe:
+      type: object
+      description: Evento de Stripe (formato resumido). https://docs.stripe.com/api/events/object
+      required: [id, type, data]
+      properties:
+        id: { type: string, example: evt_1Q2w3E4r5T6y }
+        type: { type: string, example: checkout.session.completed }
+        data:
+          type: object
+          properties:
+            object:
+              type: object
+              properties:
+                id: { type: string, example: cs_test_a1b2c3 }
+                object: { type: string, example: checkout.session }
+                payment_status: { type: string, example: paid }
+                payment_intent: { type: string, example: pi_3Q2w3E4r5T6y }
+                client_reference_id: { type: string, format: uuid }
+                metadata:
+                  type: object
+                  properties:
+                    id_pago: { type: string, format: uuid }
+                    id_reserva: { type: string }
+
+    WebhookResponse:
+      type: object
+      properties:
+        recibido: { type: boolean, example: true }
+        id_evento: { type: string, example: evt_1Q2w3E4r5T6y }
+        duplicado: { type: boolean, example: false }
+        id_pago: { type: string, format: uuid, nullable: true }
+        estado_pago: { allOf: [{ $ref: '#/components/schemas/EstadoPago' }], nullable: true }
+
+    Health:
+      type: object
+      properties:
+        estado: { type: string, enum: [ok, degradado] }
+        servicio: { type: string, example: microservicio-pagos }
+        base_datos: { type: string, enum: [ok, error] }
+        pasarela: { type: string, enum: [stripe, mock] }
+        entradas: { type: string, enum: [http, mock] }
+
+    Error:
+      type: object
+      required: [error, mensaje]
+      properties:
+        error: { type: string, description: 'Código estable del error', example: PAGO_NO_ENCONTRADO }
+        mensaje: { type: string, example: 'No existe un pago con id 3f2b8c1e-6a4d-4e2f-9b1a-7c5d8e9f0a12' }
+        detalles: { type: array, items: { type: string } }
+
+  responses:
+    ErrorValidacion:
+      description: Datos inválidos (`VALIDACION_FALLIDA` o `JSON_INVALIDO`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error: VALIDACION_FALLIDA
+            mensaje: Los datos enviados no son válidos
+            detalles: ['total es obligatorio y debe ser un número entero']
+    NoAutenticado:
+      description: Falta el token o es inválido/expirado (`NO_AUTENTICADO`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: NO_AUTENTICADO, mensaje: 'Se requiere un token de autorización válido' }
+    NoAutorizado:
+      description: El pago pertenece a otro usuario y el rol no es privilegiado (`NO_AUTORIZADO`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: NO_AUTORIZADO, mensaje: 'El pago pertenece a otro usuario' }
+    PagoNoEncontrado:
+      description: No existe el pago (`PAGO_NO_ENCONTRADO`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ErrorPasarela:
+      description: Stripe rechazó la operación o no respondió a tiempo (`ERROR_PASARELA`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    EntradasNoDisponible:
+      description: No se pudo invocar al servicio de Entradas para validar la orden (`ENTRADAS_NO_DISPONIBLE`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ErrorInterno:
+      description: Error no controlado (`ERROR_INTERNO`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

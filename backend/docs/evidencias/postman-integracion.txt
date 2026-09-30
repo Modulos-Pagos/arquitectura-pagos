@@ -1,0 +1,142 @@
+newman
+
+Pagos TITEC — Pruebas de integración
+
+❏ 0. Operación
+↳ Health check
+  GET http://localhost:3000/health [200 OK, 453B, 30ms]
+  ✓  200 OK
+  ✓  Servicio y BD operativos
+
+❏ 1. Entradas → Crear transacción
+↳ Crear pago nuevo (201)
+  POST http://localhost:3000/api/v1/pagos/transacciones [201 Created, 704B, 36ms]
+  ✓  201 Created
+  ✓  Pago PENDIENTE con url de checkout
+
+↳ Reintento idempotente (200, mismo pago)
+  POST http://localhost:3000/api/v1/pagos/transacciones [200 OK, 699B, 7ms]
+  ✓  200 OK (no 201)
+  ✓  Devuelve el mismo id_pago
+
+↳ Misma reserva con otro monto (409)
+  POST http://localhost:3000/api/v1/pagos/transacciones [409 Conflict, 488B, 6ms]
+  ✓  409 Conflict
+  ✓  Código CONFLICTO_IDEMPOTENCIA
+
+↳ Datos inválidos (400)
+  POST http://localhost:3000/api/v1/pagos/transacciones [400 Bad Request, 600B, 5ms]
+  ✓  400 Bad Request
+  ✓  Detalla los errores
+
+↳ Sin token (401)
+  POST http://localhost:3000/api/v1/pagos/transacciones [401 Unauthorized, 444B, 5ms]
+  ✓  401 Unauthorized
+  ✓  Código NO_AUTENTICADO
+
+↳ Request de Entradas v1.0: token_sesion en el body, sin id_evento (201)
+  POST http://localhost:3000/api/v1/pagos/transacciones [201 Created, 721B, 9ms]
+  ✓  201 Created con el request tal como lo envía Entradas
+  ✓  Devuelve id_pago, estado_pago y fecha_creacion (contrato Entradas)
+
+❏ 2. Entradas → Polling de estado
+↳ Consultar pago PENDIENTE (200)
+  GET http://localhost:3000/api/v1/pagos/b2451286-37a6-4039-840b-c08461d84132 [200 OK, 807B, 7ms]
+  ✓  200 OK
+  ✓  Estado PENDIENTE y datos de la orden
+
+↳ Otro usuario no puede ver el pago (403)
+  GET http://localhost:3000/api/v1/pagos/b2451286-37a6-4039-840b-c08461d84132 [403 Forbidden, 427B, 7ms]
+  ✓  403 Forbidden
+
+↳ Entradas consulta con token de servicio (200)
+  GET http://localhost:3000/api/v1/pagos/b2451286-37a6-4039-840b-c08461d84132 [200 OK, 807B, 6ms]
+  ✓  200 OK
+
+↳ Pago inexistente (404)
+  GET http://localhost:3000/api/v1/pagos/00000000-0000-4000-8000-000000000000 [404 Not Found, 462B, 5ms]
+  ✓  404 Not Found
+  ✓  Código PAGO_NO_ENCONTRADO
+
+↳ Id mal formado (400)
+  GET http://localhost:3000/api/v1/pagos/pay-112233 [400 Bad Request, 485B, 4ms]
+  ✓  400 Bad Request
+
+❏ 3. Stripe → Webhook (simulado con PASARELA=mock)
+↳ Pago completado → APROBADO
+  POST http://localhost:3000/api/v1/pagos/webhooks/stripe [200 OK, 500B, 13ms]
+  ✓  200 OK
+  ✓  Pago aprobado
+
+↳ Evento repetido por Stripe (idempotente)
+  POST http://localhost:3000/api/v1/pagos/webhooks/stripe [200 OK, 493B, 4ms]
+  ✓  200 OK
+  ✓  Marcado como duplicado
+
+↳ Polling después del pago → APROBADO
+  GET http://localhost:3000/api/v1/pagos/b2451286-37a6-4039-840b-c08461d84132 [200 OK, 727B, 5ms]
+  ✓  200 OK
+  ✓  Entradas ve el pago APROBADO
+
+↳ Cuerpo inválido (400)
+  POST http://localhost:3000/api/v1/pagos/webhooks/stripe [400 Bad Request, 438B, 5ms]
+  ✓  400 Bad Request
+
+❏ 4. Promociones → Listado de pagos
+↳ Pagos APROBADOS de un usuario (rol SERVICIO)
+  GET http://localhost:3000/api/v1/pagos?id_usuario=usr-postman-1&estado=APROBADO [200 OK, 805B, 12ms]
+  ✓  200 OK
+  ✓  Incluye el id_pago aprobado
+  ✓  Solo pagos APROBADOS
+
+↳ Comprador no puede listar pagos ajenos (403)
+  GET http://localhost:3000/api/v1/pagos?id_usuario=usr-postman-2 [403 Forbidden, 433B, 4ms]
+  ✓  403 Forbidden
+
+↳ Filtro de estado inválido (400)
+  GET http://localhost:3000/api/v1/pagos?estado=PAGADO [400 Bad Request, 529B, 4ms]
+  ✓  400 Bad Request
+
+❏ 5. Entradas → Reembolso / anulación
+↳ Reembolsar pago APROBADO → REEMBOLSADO
+  POST http://localhost:3000/api/v1/pagos/b2451286-37a6-4039-840b-c08461d84132/reembolso [200 OK, 749B, 15ms]
+  ✓  200 OK
+  ✓  Pago reembolsado por el total
+
+↳ Reintento de reembolso (idempotente)
+  POST http://localhost:3000/api/v1/pagos/b2451286-37a6-4039-840b-c08461d84132/reembolso [200 OK, 748B, 7ms]
+  ✓  200 OK
+  ✓  ya_procesado = true
+
+↳ Crear segundo pago (para anular)
+  POST http://localhost:3000/api/v1/pagos/transacciones [201 Created, 711B, 8ms]
+  ✓  201 Created
+
+↳ Anular pago PENDIENTE → ANULADO
+  POST http://localhost:3000/api/v1/pagos/ffdfb375-f41d-43cd-a4dc-aa9edee3b185/reembolso [200 OK, 531B, 10ms]
+  ✓  200 OK
+  ✓  Pago anulado sin reembolso
+
+↳ Motivo faltante (400)
+  POST http://localhost:3000/api/v1/pagos/ffdfb375-f41d-43cd-a4dc-aa9edee3b185/reembolso [400 Bad Request, 512B, 3ms]
+  ✓  400 Bad Request
+
+┌─────────────────────────┬─────────────────┬─────────────────┐
+│                         │        executed │          failed │
+├─────────────────────────┼─────────────────┼─────────────────┤
+│              iterations │               1 │               0 │
+├─────────────────────────┼─────────────────┼─────────────────┤
+│                requests │              24 │               0 │
+├─────────────────────────┼─────────────────┼─────────────────┤
+│            test-scripts │              24 │               0 │
+├─────────────────────────┼─────────────────┼─────────────────┤
+│      prerequest-scripts │               4 │               0 │
+├─────────────────────────┼─────────────────┼─────────────────┤
+│              assertions │              41 │               0 │
+├─────────────────────────┴─────────────────┴─────────────────┤
+│ total run duration: 737ms                                   │
+├─────────────────────────────────────────────────────────────┤
+│ total data received: 5.75kB (approx)                        │
+├─────────────────────────────────────────────────────────────┤
+│ average response time: 9ms [min: 3ms, max: 36ms, s.d.: 7ms] │
+└─────────────────────────────────────────────────────────────┘

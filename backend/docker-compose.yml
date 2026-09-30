@@ -1,0 +1,55 @@
+# Levanta el microservicio de Pagos + su propia base de datos PostgreSQL
+# (patrón Database per Service). El esquema se crea solo desde db/schema.sql.
+#
+#   cp .env.example .env
+#   docker compose up --build
+#
+# Swagger: http://localhost:3000/api-docs
+services:
+  pagos-db:
+    image: postgres:16-alpine
+    container_name: pagos-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: pagos_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pagos-db-data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pagos_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - titec-net
+
+  pagos-service:
+    build: .
+    container_name: pagos-service
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@pagos-db:5432/pagos_db
+      DATABASE_SSL: "false"
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      pagos-db:
+        condition: service_healthy
+    networks:
+      titec-net:
+        aliases:
+          - pagos-service
+
+volumes:
+  pagos-db-data:
+
+# Para integrarse con los otros equipos en una red compartida (como el esqueleto
+# skeletotitec), crear la red una vez con `docker network create titec-net`
+# y cambiar abajo a `external: true`.
+networks:
+  titec-net:
+    name: titec-net

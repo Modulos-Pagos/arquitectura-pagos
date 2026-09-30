@@ -1,0 +1,1374 @@
+{
+  "info": {
+    "_postman_id": "9a4c1f7e-3b2d-4e8a-a6f1-pagos-titec-2026",
+    "name": "Pagos TITEC — Pruebas de integración",
+    "description": "Casos de prueba de integración del **microservicio de Pagos** (ítem CA2).\n\nCada request tiene su **resultado esperado** (descripción) y **tests automáticos** (pestaña Tests).\n\n**Cómo ejecutar**\n1. Levantar el servicio con `PASARELA=mock` (el webhook acepta eventos simulados sin firma).\n2. Importar esta colección y el entorno `pagos-local.postman_environment.json` (tokens generados con `npm run postman:env`).\n3. Seleccionar el entorno y ejecutar la colección completa con **Run collection** (en orden).\n   Por consola: `npm run test:integracion` (Newman) deja el resultado en `docs/evidencias/`.\n\nCubre los servicios que consumen **Entradas** (crear, polling, reembolso), **Promociones** (listado) y **Stripe** (webhook).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{tokenComprador}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "0. Operación",
+      "item": [
+        {
+          "name": "Health check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "      pm.test('Servicio y BD operativos', () => {",
+                  "        const b = pm.response.json();",
+                  "        pm.expect(b.estado).to.eql('ok');",
+                  "        pm.expect(b.base_datos).to.eql('ok');",
+                  "      });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "**Resultado esperado:** 200 con `estado: ok` y `base_datos: ok`.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1. Entradas → Crear transacción",
+      "item": [
+        {
+          "name": "Crear pago nuevo (201)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const sufijo = Date.now();",
+                  "      pm.collectionVariables.set('idReserva', 'res-postman-' + sufijo);",
+                  "      pm.collectionVariables.set('idEvento', 'evt-postman-' + sufijo);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "      const b = pm.response.json();",
+                  "      pm.test('Pago PENDIENTE con url de checkout', () => {",
+                  "        pm.expect(b.estado_pago).to.eql('PENDIENTE');",
+                  "        pm.expect(b.id_pago).to.match(/^[0-9a-f-]{36}$/);",
+                  "        pm.expect(b.url_checkout).to.be.a('string');",
+                  "        pm.expect(b.fecha_creacion).to.be.a('string');",
+                  "        pm.expect(b.id_reserva).to.eql(pm.collectionVariables.get('idReserva'));",
+                  "      });",
+                  "      pm.collectionVariables.set('idPago', b.id_pago);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/transacciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "transacciones"
+              ]
+            },
+            "description": "**Resultado esperado:** 201 con `id_pago` (UUID), `estado_pago: PENDIENTE`, `fecha_creacion` y `url_checkout`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenComprador}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReserva}}\",\n  \"id_evento\": \"{{idEvento}}\",\n  \"total\": 15000,\n  \"cantidad_entradas\": 2,\n  \"metodo\": \"checkout\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reintento idempotente (200, mismo pago)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK (no 201)', () => pm.response.to.have.status(200));",
+                  "      pm.test('Devuelve el mismo id_pago', () => {",
+                  "        pm.expect(pm.response.json().id_pago).to.eql(pm.collectionVariables.get('idPago'));",
+                  "      });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/transacciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "transacciones"
+              ]
+            },
+            "description": "**Resultado esperado:** 200 con el MISMO `id_pago` (no se crea un segundo cobro).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenComprador}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReserva}}\",\n  \"id_evento\": \"{{idEvento}}\",\n  \"total\": 15000,\n  \"cantidad_entradas\": 2,\n  \"metodo\": \"checkout\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Misma reserva con otro monto (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "      pm.test('Código CONFLICTO_IDEMPOTENCIA', () => pm.expect(pm.response.json().error).to.eql('CONFLICTO_IDEMPOTENCIA'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/transacciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "transacciones"
+              ]
+            },
+            "description": "**Resultado esperado:** 409 `CONFLICTO_IDEMPOTENCIA`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenComprador}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReserva}}\",\n  \"id_evento\": \"{{idEvento}}\",\n  \"total\": 9990,\n  \"cantidad_entradas\": 2,\n  \"metodo\": \"checkout\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Datos inválidos (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "      pm.test('Detalla los errores', () => {",
+                  "        const b = pm.response.json();",
+                  "        pm.expect(b.error).to.eql('VALIDACION_FALLIDA');",
+                  "        pm.expect(b.detalles).to.be.an('array');",
+                  "        pm.expect(b.detalles.length).to.be.above(2);",
+                  "      });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/transacciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "transacciones"
+              ]
+            },
+            "description": "**Resultado esperado:** 400 `VALIDACION_FALLIDA` con la lista de campos inválidos en `detalles`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenComprador}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"\",\n  \"total\": -5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sin token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "      pm.test('Código NO_AUTENTICADO', () => pm.expect(pm.response.json().error).to.eql('NO_AUTENTICADO'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/transacciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "transacciones"
+              ]
+            },
+            "description": "**Resultado esperado:** 401 `NO_AUTENTICADO`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReserva}}\",\n  \"id_evento\": \"{{idEvento}}\",\n  \"total\": 15000,\n  \"cantidad_entradas\": 2,\n  \"metodo\": \"checkout\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Request de Entradas v1.0: token_sesion en el body, sin id_evento (201)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('idReservaEntradas', 'res-entradas-' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created con el request tal como lo envía Entradas', () => pm.response.to.have.status(201));",
+                  "const b = pm.response.json();",
+                  "pm.test('Devuelve id_pago, estado_pago y fecha_creacion (contrato Entradas)', () => {",
+                  "  pm.expect(b.id_pago).to.match(/^[0-9a-f-]{36}$/);",
+                  "  pm.expect(b.estado_pago).to.eql('PENDIENTE');",
+                  "  pm.expect(b.fecha_creacion).to.be.a('string');",
+                  "  pm.expect(b.url_checkout).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/transacciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "transacciones"
+              ]
+            },
+            "description": "**Contrato de Entradas v1.0.** Entradas envía el JWT en `token_sesion` (body) y no envía `id_evento`.\n\n**Resultado esperado:** 201 con `id_pago`, `estado_pago: PENDIENTE`, `fecha_creacion` y `url_checkout`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReservaEntradas}}\",\n  \"total\": 15000,\n  \"cantidad_entradas\": 2,\n  \"token_sesion\": \"{{tokenComprador}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Entradas → Polling de estado",
+      "item": [
+        {
+          "name": "Consultar pago PENDIENTE (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "      pm.test('Estado PENDIENTE y datos de la orden', () => {",
+                  "        const b = pm.response.json();",
+                  "        pm.expect(b.estado_pago).to.eql('PENDIENTE');",
+                  "        pm.expect(b.monto).to.eql(15000);",
+                  "      });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/{{idPago}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "{{idPago}}"
+              ]
+            },
+            "description": "**Resultado esperado:** 200 con `estado_pago: PENDIENTE`, `monto: 15000` y `fecha_creacion`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenComprador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Otro usuario no puede ver el pago (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/{{idPago}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "{{idPago}}"
+              ]
+            },
+            "description": "**Resultado esperado:** 403 `NO_AUTORIZADO` (política de autorización: solo el dueño o rol SERVICIO/ADMIN).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenOtroUsuario}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Entradas consulta con token de servicio (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/{{idPago}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "{{idPago}}"
+              ]
+            },
+            "description": "**Resultado esperado:** 200: el rol SERVICIO puede consultar cualquier pago.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenServicio}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pago inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "      pm.test('Código PAGO_NO_ENCONTRADO', () => pm.expect(pm.response.json().error).to.eql('PAGO_NO_ENCONTRADO'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/00000000-0000-4000-8000-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "00000000-0000-4000-8000-000000000000"
+              ]
+            },
+            "description": "**Resultado esperado:** 404 `PAGO_NO_ENCONTRADO`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenComprador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Id mal formado (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/pay-112233",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "pay-112233"
+              ]
+            },
+            "description": "**Resultado esperado:** 400 `VALIDACION_FALLIDA` (id_pago debe ser UUID).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenComprador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Stripe → Webhook (simulado con PASARELA=mock)",
+      "item": [
+        {
+          "name": "Pago completado → APROBADO",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('idEventoStripe', 'evt_postman_' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "      pm.test('Pago aprobado', () => {",
+                  "        const b = pm.response.json();",
+                  "        pm.expect(b.estado_pago).to.eql('APROBADO');",
+                  "        pm.expect(b.duplicado).to.eql(false);",
+                  "      });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/webhooks/stripe",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "webhooks",
+                "stripe"
+              ]
+            },
+            "description": "**Resultado esperado:** 200 con `estado_pago: APROBADO` y `duplicado: false`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{idEventoStripe}}\",\n  \"type\": \"checkout.session.completed\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"cs_postman_simulada\",\n      \"object\": \"checkout.session\",\n      \"payment_status\": \"paid\",\n      \"client_reference_id\": \"{{idPago}}\",\n      \"metadata\": {\n        \"id_pago\": \"{{idPago}}\",\n        \"id_reserva\": \"{{idReserva}}\"\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Evento repetido por Stripe (idempotente)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "      pm.test('Marcado como duplicado', () => pm.expect(pm.response.json().duplicado).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/webhooks/stripe",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "webhooks",
+                "stripe"
+              ]
+            },
+            "description": "**Resultado esperado:** 200 con `duplicado: true` (no se procesa dos veces).",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{idEventoStripe}}\",\n  \"type\": \"checkout.session.completed\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"cs_postman_simulada\",\n      \"object\": \"checkout.session\",\n      \"payment_status\": \"paid\",\n      \"client_reference_id\": \"{{idPago}}\",\n      \"metadata\": {\n        \"id_pago\": \"{{idPago}}\",\n        \"id_reserva\": \"{{idReserva}}\"\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Polling después del pago → APROBADO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "      pm.test('Entradas ve el pago APROBADO', () => {",
+                  "        const b = pm.response.json();",
+                  "        pm.expect(b.estado_pago).to.eql('APROBADO');",
+                  "        pm.expect(b.url_checkout).to.eql(null);",
+                  "      });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/{{idPago}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "{{idPago}}"
+              ]
+            },
+            "description": "**Resultado esperado:** 200 con `estado_pago: APROBADO` y `url_checkout: null`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenServicio}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cuerpo inválido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/webhooks/stripe",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "webhooks",
+                "stripe"
+              ]
+            },
+            "description": "**Resultado esperado:** 400 `FIRMA_WEBHOOK_INVALIDA`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "esto-no-es-json",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Promociones → Listado de pagos",
+      "item": [
+        {
+          "name": "Pagos APROBADOS de un usuario (rol SERVICIO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "      const b = pm.response.json();",
+                  "      pm.test('Incluye el id_pago aprobado', () => {",
+                  "        const ids = b.datos.map((p) => p.id_pago);",
+                  "        pm.expect(ids).to.include(pm.collectionVariables.get('idPago'));",
+                  "      });",
+                  "      pm.test('Solo pagos APROBADOS', () => {",
+                  "        pm.expect(b.datos.every((p) => p.estado_pago === 'APROBADO')).to.eql(true);",
+                  "        pm.expect(b.paginacion.total).to.be.above(0);",
+                  "      });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos?id_usuario=usr-postman-1&estado=APROBADO",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos"
+              ],
+              "query": [
+                {
+                  "key": "id_usuario",
+                  "value": "usr-postman-1"
+                },
+                {
+                  "key": "estado",
+                  "value": "APROBADO"
+                }
+              ]
+            },
+            "description": "**Resultado esperado:** 200 con `datos` que incluye el `id_pago` aprobado; todos en estado APROBADO.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenServicio}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Comprador no puede listar pagos ajenos (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos?id_usuario=usr-postman-2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos"
+              ],
+              "query": [
+                {
+                  "key": "id_usuario",
+                  "value": "usr-postman-2"
+                }
+              ]
+            },
+            "description": "**Resultado esperado:** 403 `NO_AUTORIZADO`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenComprador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filtro de estado inválido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos?estado=PAGADO",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "PAGADO"
+                }
+              ]
+            },
+            "description": "**Resultado esperado:** 400 `VALIDACION_FALLIDA`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenComprador}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Entradas → Reembolso / anulación",
+      "item": [
+        {
+          "name": "Reembolsar pago APROBADO → REEMBOLSADO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "      pm.test('Pago reembolsado por el total', () => {",
+                  "        const b = pm.response.json();",
+                  "        pm.expect(b.accion).to.eql('REEMBOLSADO');",
+                  "        pm.expect(b.estado_pago).to.eql('REEMBOLSADO');",
+                  "        pm.expect(b.reembolso.monto).to.eql(15000);",
+                  "      });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/{{idPago}}/reembolso",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "{{idPago}}",
+                "reembolso"
+              ]
+            },
+            "description": "**Resultado esperado:** 200 con `accion: REEMBOLSADO` y `reembolso.monto: 15000`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenServicio}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Hold de la reserva vencido: el usuario pagó fuera de plazo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reintento de reembolso (idempotente)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "      pm.test('ya_procesado = true', () => pm.expect(pm.response.json().ya_procesado).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/{{idPago}}/reembolso",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "{{idPago}}",
+                "reembolso"
+              ]
+            },
+            "description": "**Resultado esperado:** 200 con `ya_procesado: true` (no se devuelve el dinero dos veces).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenServicio}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Hold de la reserva vencido: el usuario pagó fuera de plazo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Crear segundo pago (para anular)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('idReserva2', 'res-postman-anular-' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "      pm.collectionVariables.set('idPago2', pm.response.json().id_pago);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/transacciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "transacciones"
+              ]
+            },
+            "description": "**Resultado esperado:** 201 con un nuevo pago PENDIENTE.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenComprador}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReserva2}}\",\n  \"id_evento\": \"{{idEvento}}\",\n  \"total\": 15000,\n  \"cantidad_entradas\": 2,\n  \"metodo\": \"checkout\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Anular pago PENDIENTE → ANULADO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "      pm.test('Pago anulado sin reembolso', () => {",
+                  "        const b = pm.response.json();",
+                  "        pm.expect(b.accion).to.eql('ANULADO');",
+                  "        pm.expect(b.reembolso).to.eql(null);",
+                  "      });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/{{idPago2}}/reembolso",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "{{idPago2}}",
+                "reembolso"
+              ]
+            },
+            "description": "**Resultado esperado:** 200 con `accion: ANULADO` y `reembolso: null` (no hubo cobro).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenServicio}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"El usuario abandonó la compra\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Motivo faltante (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/{{idPago2}}/reembolso",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "{{idPago2}}",
+                "reembolso"
+              ]
+            },
+            "description": "**Resultado esperado:** 400 `VALIDACION_FALLIDA`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenServicio}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "idReserva",
+      "value": ""
+    },
+    {
+      "key": "idEvento",
+      "value": ""
+    },
+    {
+      "key": "idPago",
+      "value": ""
+    },
+    {
+      "key": "idEventoStripe",
+      "value": ""
+    },
+    {
+      "key": "idReserva2",
+      "value": ""
+    },
+    {
+      "key": "idPago2",
+      "value": ""
+    },
+    {
+      "key": "idReservaEntradas",
+      "value": ""
+    }
+  ]
+}

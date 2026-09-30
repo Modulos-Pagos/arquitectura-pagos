@@ -1,0 +1,39 @@
+{
+  "name": "microservicio-pagos",
+  "version": "1.0.0",
+  "description": "Microservicio de Pagos de TicketU (TITEC 2026-2): checkout con Stripe, polling de estado, reembolsos y consulta para Promociones.",
+  "main": "dist/index.js",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:init": "tsx scripts/db-init.ts",
+    "db:reset": "tsx scripts/db-init.ts --reset",
+    "db:docs": "tsx scripts/db-docs.ts",
+    "token": "tsx scripts/generar-token.ts",
+    "postman:env": "tsx scripts/generar-entorno-postman.ts",
+    "test": "node --import tsx --test --test-concurrency=1 \"tests/**/*.test.ts\"",
+    "test:evidencia": "node --import tsx --test --test-concurrency=1 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=spec --test-reporter-destination=docs/evidencias/pruebas-funcionales.txt --test-reporter=junit --test-reporter-destination=docs/evidencias/pruebas-funcionales.junit.xml \"tests/**/*.test.ts\"",
+    "test:integracion": "newman run postman/Pagos-TITEC.postman_collection.json -e postman/pagos-local.postman_environment.json --reporters cli,junit --reporter-junit-export docs/evidencias/postman-integracion.junit.xml"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "pg": "^8.16.0",
+    "swagger-ui-express": "^5.0.1",
+    "yaml": "^2.8.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.15.0",
+    "@types/swagger-ui-express": "^4.1.8",
+    "newman": "^6.2.1",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.2"
+  }
+}
