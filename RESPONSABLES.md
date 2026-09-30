@@ -16,6 +16,6 @@ Tabla de responsables para la Evaluación 1. Cada integrante responde por los í
 |---|---|
 | Back End | `backend/docs/openapi.yaml` (Swagger propio y para otros módulos), `backend/docs/openapi-servicios-consumidos.yaml`, `backend/src/integraciones/entradas.client.ts` |
 | Base de Datos | `backend/db/schema.sql`, `backend/docs/base-de-datos/diagrama-relacional.md`, `backend/docs/base-de-datos/diccionario-datos.md` |
-| UI/UX | Interfaz de checkout del módulo: `frontend/` |
+| UI/UX | Interfaz de checkout del módulo: `frontend/`; estándar de UI acordado entre módulos y su aplicación: `frontend/ESTANDARES_UI.md`, `frontend/docs/Checklist_Consistencia_Visual.docx` |
 | Gestión | GitHub Issues y Project: sprints, historias con criterios de aceptación, DoD y política de autorización, ítems de integración `INT-01` a `INT-05`; contrato `docs/contratos/Contrato_Pagos_Entradas_v2.1.docx` |
 | Calidad | `backend/tests/`, `backend/docs/evidencias/` (pruebas funcionales a cargo de Simón Canales; pruebas de integración Postman/Newman a cargo de Ricardo Muñoz), `backend/postman/` |
