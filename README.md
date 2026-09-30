@@ -4,7 +4,6 @@
 |---|---|---|
 | `backend/` | Microservicio de Pagos (Node.js + TypeScript + Express + PostgreSQL/Supabase + Stripe) | 3000 |
 | `frontend/` | Pantalla de pago (Next.js + Stripe Elements, diseño del equipo) | 5173 |
-| `GUIA_GITHUB_EVALUACION1.md` | Qué cambiar en GitHub (backlog, historias, issues de integración) | — |
 
 ## Levantar todo (dos terminales)
 
