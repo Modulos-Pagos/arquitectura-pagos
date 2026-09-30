@@ -1,55 +1,65 @@
 # Módulo de Pagos — TicketU (TITEC 2026-2)
 
-| Carpeta | Qué es | Puerto |
+Microservicio de Pagos de TicketU. Recibe la orden de compra de Entradas/Inventario, cobra con Stripe (modo prueba),
+informa el estado del pago y permite reembolsos y anulaciones. Incluye la pantalla de pago (checkout) del módulo.
+
+Equipo y responsables por rol: [`RESPONSABLES.md`](RESPONSABLES.md).
+
+| Carpeta | Contenido | Puerto |
 |---|---|---|
-| `backend/` | Microservicio de Pagos (Node.js + TypeScript + Express + PostgreSQL/Supabase + Stripe) | 3000 |
-| `frontend/` | Pantalla de pago (Next.js + Stripe Elements, diseño del equipo) | 5173 |
+| [`backend/`](backend) | Microservicio (Node.js 22, TypeScript, Express, PostgreSQL/Supabase, Stripe) | 3000 |
+| [`frontend/`](frontend) | Pantalla de pago (Next.js + Stripe Elements) | 5173 |
+| [`docs/contratos/`](docs/contratos) | Contrato de interfaz Pagos ↔ Entradas | — |
 
-## Levantar todo (dos terminales)
+## Evidencias por ítem de la rúbrica
 
-**Requisitos:** Node.js 22 o superior, base de datos en Supabase y cuenta de Stripe en modo prueba.
+| Ítem | Evidencia |
+|---|---|
+| **BE1** Servicios propios | [`backend/docs/openapi.yaml`](backend/docs/openapi.yaml) (Swagger en `http://localhost:3000/api-docs`) |
+| **BE2** Servicios que requerimos de otros squads | [`backend/src/integraciones/entradas.client.ts`](backend/src/integraciones/entradas.client.ts), [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) |
+| **BE3** Servicios para otros módulos | Secciones *Entradas (consumidor)* y *Promociones (consumidor)* de [`backend/docs/openapi.yaml`](backend/docs/openapi.yaml) |
+| **BD1–BD4** Diagrama relacional | [`backend/docs/base-de-datos/diagrama-relacional.md`](backend/docs/base-de-datos/diagrama-relacional.md) (generado desde la base de datos) |
+| **BD3** Script de creación y diccionario | [`backend/db/schema.sql`](backend/db/schema.sql), [`backend/docs/base-de-datos/diccionario-datos.md`](backend/docs/base-de-datos/diccionario-datos.md) |
+| **UI1–UI2** Aplicación | [`frontend/`](frontend) |
+| **UI3** Estándar de UI acordado | [`frontend/ESTANDARES_UI.md`](frontend/ESTANDARES_UI.md), [`frontend/docs/Checklist_Consistencia_Visual.docx`](frontend/docs/Checklist_Consistencia_Visual.docx) |
+| **GE1–GE4** Planificación, historias, avance e integración | [Issues](https://github.com/Modulos-Pagos/arquitectura-pagos/issues), [Milestones (sprints)](https://github.com/Modulos-Pagos/arquitectura-pagos/milestones), [Project "Progreso Modulo de Pagos"](https://github.com/orgs/Modulos-Pagos/projects/1), ítems de integración `INT-01` a `INT-05` |
+| **CA1** Pruebas de funcionalidad | [`backend/tests/`](backend/tests), resultado en [`pruebas-funcionales.txt`](backend/docs/evidencias/pruebas-funcionales.txt) y [`pruebas-funcionales.junit.xml`](backend/docs/evidencias/pruebas-funcionales.junit.xml) |
+| **CA2** Pruebas de integración | Colección Postman en [`backend/postman/`](backend/postman), resultado en [`postman-integracion.txt`](backend/docs/evidencias/postman-integracion.txt), [`postman-integracion.junit.xml`](backend/docs/evidencias/postman-integracion.junit.xml) y [`postman-runner.jpg`](backend/docs/evidencias/postman-runner.jpg) |
 
-### Terminal 1: backend
+## Cómo ejecutar
+
+**Requisitos:** Node.js 22 o superior, PostgreSQL (Supabase o local) y una cuenta de Stripe en modo prueba.
+
+### Backend (terminal 1)
 ```bash
 cd backend
 npm install
-cp .env.example .env      # completar DATABASE_URL (Supabase, Session pooler), DATABASE_SSL=true,
-                          # PASARELA=stripe, STRIPE_SECRET_KEY=sk_test_..., CHECKOUT_EMAIL_DEFECTO
-npm run dev               # http://localhost:3000/api-docs (Swagger)
+cp .env.example .env   # completar DATABASE_URL, PASARELA=stripe y STRIPE_SECRET_KEY (sk_test_...)
+npm run db:init        # crea las tablas desde db/schema.sql (o ejecutarlo en Supabase > SQL Editor)
+npm run dev            # Swagger en http://localhost:3000/api-docs
 ```
-Base de datos: en Supabase → SQL Editor, ejecutar `backend/db/schema.sql`.
 
-### Terminal 2: frontend
+### Frontend (terminal 2)
 ```bash
 cd frontend
 npm install
-cp .env.local.example .env.local   # pk_test_..., URL de la API y token (en backend: npm run token)
+cp .env.local.example .env.local   # llave pk_test_..., URL de la API y token (en backend: npm run token)
 npm run dev                        # http://localhost:5173
 ```
 
-## Probar el flujo completo
-1. Swagger → Authorize (token de `npm run token`) → `POST /api/v1/pagos/transacciones`.
+### Probar el flujo completo
+1. En Swagger, **Authorize** con el token de `npm run token` y ejecutar `POST /api/v1/pagos/transacciones`.
 2. Abrir la `url_checkout` de la respuesta (`http://localhost:5173/?id_pago=...`).
-3. Pagar con `4242 4242 4242 4242`, fecha futura, CVC cualquiera → **¡Pago confirmado!**
-4. Rechazo: `4000 0000 0000 0002`. Reembolso: `POST /api/v1/pagos/{id_pago}/reembolso`.
+3. Pagar con la tarjeta de prueba `4242 4242 4242 4242` (fecha futura, CVC cualquiera). Para probar un rechazo: `4000 0000 0000 0002`.
+4. Reembolso: `POST /api/v1/pagos/{id_pago}/reembolso`.
 
-El token del Swagger y el de `frontend/.env.local` deben ser del mismo usuario.
+El token usado en Swagger y el de `frontend/.env.local` deben ser del mismo usuario.
 
-## Pruebas
-- `cd backend && npm test`: 58 pruebas automáticas (requiere una BD PostgreSQL de test, ver `backend/README.md`).
-- `backend/postman/`: colección de 24 casos (levantar el backend con `PASARELA=mock`).
+### Pruebas
+```bash
+cd backend
+npm test                 # 58 pruebas (requiere la BD de prueba DATABASE_URL_TEST)
+npm run test:integracion # colección Postman con Newman (backend corriendo con PASARELA=mock)
+```
 
-**No subir a GitHub:** `.env`, `.env.local` ni `node_modules` (ya están en los `.gitignore`).
-
-## Evidencias y documentación
-| Qué | Dónde |
-|---|---|
-| Responsables por rol | [`RESPONSABLES.md`](RESPONSABLES.md) |
-| Swagger propio y para otros módulos | `backend/docs/openapi.yaml` (servido en `/api-docs`) |
-| Servicios consumidos de otros módulos | `backend/docs/openapi-servicios-consumidos.yaml`, `backend/src/integraciones/entradas.client.ts` |
-| Script de creación, diagrama y diccionario de datos | `backend/db/schema.sql`, `backend/docs/base-de-datos/` |
-| Estándar de UI acordado entre módulos | `frontend/ESTANDARES_UI.md`, `frontend/docs/Checklist_Consistencia_Visual.docx` |
-| Pruebas de funcionalidad (evidencia) | `backend/docs/evidencias/pruebas-funcionales.txt` / `.junit.xml` |
-| Pruebas de integración (evidencia Postman/Newman) | `backend/postman/`, `backend/docs/evidencias/postman-integracion.txt` / `.junit.xml`, captura del Runner de Postman `backend/docs/evidencias/postman-runner.jpg` |
-| Contrato de interfaz Pagos ↔ Entradas | `docs/contratos/Contrato_Pagos_Entradas_v2.1.docx` |
-| Historias, sprints e integración | GitHub Issues, Milestones y Project "Progreso Modulo de Pagos" |
+Más detalle del backend en [`backend/README.md`](backend/README.md) y del frontend en [`frontend/README.md`](frontend/README.md).
