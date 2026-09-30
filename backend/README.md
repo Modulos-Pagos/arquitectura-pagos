@@ -14,7 +14,7 @@ entrega el `id_pago` a **Promociones** y permite **anular o reembolsar** cuando 
 | BD1–BD4: Diagrama relacional | [`docs/base-de-datos/diagrama-relacional.md`](docs/base-de-datos/diagrama-relacional.md) (generado desde la BD) |
 | BD3: Script de creación + diccionario | [`db/schema.sql`](db/schema.sql) · [`docs/base-de-datos/diccionario-datos.md`](docs/base-de-datos/diccionario-datos.md) |
 | CA1: Pruebas de funcionalidad | [`tests/`](tests) · resultado en [`docs/evidencias/pruebas-funcionales.txt`](docs/evidencias/pruebas-funcionales.txt) |
-| CA2: Pruebas de integración | [`postman/`](postman) (colección + entorno) |
+| CA2: Pruebas de integración | [`postman/`](postman) (colección + entorno) · resultado en [`docs/evidencias/postman-integracion.txt`](docs/evidencias/postman-integracion.txt) · captura del Runner de Postman (41/41 OK) en [`docs/evidencias/postman-runner.jpg`](docs/evidencias/postman-runner.jpg) |
 | Responsables por rol | [`RESPONSABLES.md`](../RESPONSABLES.md) |
 
 ---

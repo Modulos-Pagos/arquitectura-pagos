@@ -50,6 +50,6 @@ El token del Swagger y el de `frontend/.env.local` deben ser del mismo usuario.
 | Servicios consumidos de otros módulos | `backend/docs/openapi-servicios-consumidos.yaml`, `backend/src/integraciones/entradas.client.ts` |
 | Script de creación, diagrama y diccionario de datos | `backend/db/schema.sql`, `backend/docs/base-de-datos/` |
 | Pruebas de funcionalidad (evidencia) | `backend/docs/evidencias/pruebas-funcionales.txt` / `.junit.xml` |
-| Pruebas de integración (evidencia Postman/Newman) | `backend/postman/`, `backend/docs/evidencias/postman-integracion.txt` / `.junit.xml` |
+| Pruebas de integración (evidencia Postman/Newman) | `backend/postman/`, `backend/docs/evidencias/postman-integracion.txt` / `.junit.xml`, captura del Runner de Postman `backend/docs/evidencias/postman-runner.jpg` |
 | Contrato de interfaz Pagos ↔ Entradas | `docs/contratos/Contrato_Pagos_Entradas_v2.1.docx` |
 | Historias, sprints e integración | GitHub Issues, Milestones y Project "Progreso Modulo de Pagos" |
