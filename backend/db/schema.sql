@@ -126,7 +126,7 @@ CREATE INDEX IF NOT EXISTS idx_eventos_webhook_stripe_id_pago ON eventos_webhook
 COMMENT ON TABLE  eventos_webhook_stripe IS 'Eventos recibidos desde Stripe por webhook. Evita procesar dos veces el mismo evento y deja evidencia de la respuesta de la pasarela.';
 COMMENT ON COLUMN eventos_webhook_stripe.id_evento_stripe IS 'Id del evento en Stripe (evt_...). Llave primaria para deduplicar reintentos.';
 COMMENT ON COLUMN eventos_webhook_stripe.tipo_evento      IS 'Tipo de evento de Stripe (ej: checkout.session.completed, checkout.session.expired).';
-COMMENT ON COLUMN eventos_webhook_stripe.id_pago          IS 'Pago asociado al evento (FK a pagos). NULL si el evento no corresponde a un pago conocido.';
+COMMENT ON COLUMN eventos_webhook_stripe.id_pago          IS 'Pago asociado al evento (FK a pagos). NULL si el evento no corresponde a un pago conocido o si el pago fue eliminado por un ADMIN.';
 COMMENT ON COLUMN eventos_webhook_stripe.payload          IS 'Contenido completo del evento tal como lo envió Stripe (JSON).';
 COMMENT ON COLUMN eventos_webhook_stripe.fecha_recepcion  IS 'Fecha y hora en que se recibió el evento.';
 

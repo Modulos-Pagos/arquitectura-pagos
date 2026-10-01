@@ -6,11 +6,12 @@ import { Elements } from '@stripe/react-stripe-js';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import BannerPasos from '@/components/layout/BannerPasos';
 import CheckoutForm, { type PagoExistente } from '@/components/checkout/CheckoutForm';
 import OrderSummary from '@/components/checkout/OrderSummary';
 import Confirmacion from '@/components/checkout/Confirmacion';
 import { obtenerDatosCheckout, type Pago } from '@/lib/api';
-import { PEDIDO_DEMO } from '@/lib/pedido';
+import { iniciales, PEDIDO_DEMO } from '@/lib/pedido';
 import { stripePromise } from '@/lib/stripe';
 
 type Carga =
@@ -100,7 +101,8 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-ticket-bg">
-      <Header paso={pago ? 2 : 1} />
+      <Header iniciales={iniciales(pedido.comprador.nombre)} />
+      <BannerPasos paso={pago ? 2 : 1} />
       {/* Contenido: 1200px máx., grid de 12 columnas, gutters de 24px (fila 13) */}
       <main className="flex-grow w-full max-w-[1200px] mx-auto px-4 md:px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

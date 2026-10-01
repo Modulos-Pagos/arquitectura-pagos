@@ -1,6 +1,6 @@
 # Diccionario de datos — Microservicio de Pagos
 
-> Generado automáticamente desde los comentarios (`COMMENT ON`) de la base de datos con `npm run db:docs` (2026-09-28T19:35:07.131Z).
+> Generado automáticamente desde los comentarios (`COMMENT ON`) de la base de datos con `npm run db:docs` (2026-09-30T20:44:03.452Z).
 > Fuente: [`db/schema.sql`](../../db/schema.sql).
 
 ## Convenciones de nomenclatura
@@ -50,7 +50,7 @@ Eventos recibidos desde Stripe por webhook. Evita procesar dos veces el mismo ev
 |---|---|---|---|---|---|---|
 | 1 | `id_evento_stripe` | varchar(255) | No |  | PK | Id del evento en Stripe (evt_...). Llave primaria para deduplicar reintentos. |
 | 2 | `tipo_evento` | varchar(100) | No |  |  | Tipo de evento de Stripe (ej: checkout.session.completed, checkout.session.expired). |
-| 3 | `id_pago` | uuid | Sí |  | FK | Pago asociado al evento (FK a pagos). NULL si el evento no corresponde a un pago conocido. |
+| 3 | `id_pago` | uuid | Sí |  | FK | Pago asociado al evento (FK a pagos). NULL si el evento no corresponde a un pago conocido o si el pago fue eliminado por un ADMIN. |
 | 4 | `payload` | jsonb | No |  |  | Contenido completo del evento tal como lo envió Stripe (JSON). |
 | 5 | `fecha_recepcion` | timestamptz | No | `now()` |  | Fecha y hora en que se recibió el evento. |
 

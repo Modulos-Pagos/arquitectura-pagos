@@ -15,7 +15,7 @@ export type MetodoPago = (typeof METODOS_PAGO)[number];
 
 export interface CrearTransaccionDto {
   id_reserva: string;
-  /** Opcional (contrato Entradas v1.1): la tabla TITEC solo exige cantidad y total. */
+  /** Opcional (contrato Entradas v1.0): la tabla TITEC solo exige cantidad y total. */
   id_evento: string | null;
   total: number;
   cantidad_entradas: number;

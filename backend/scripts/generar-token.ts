@@ -3,6 +3,7 @@
  *   npm run token                      -> comprador usr-demo-1
  *   npm run token -- usr-42 COMPRADOR  -> id y rol a elección
  *   npm run token -- entradas-svc SERVICIO
+ *   npm run token -- usr-admin ADMIN       -> para DELETE /api/v1/pagos/{id_pago}
  */
 import { cargarArchivoEnv } from '../src/config/env';
 import { firmarJwt } from '../src/utils/jwt';

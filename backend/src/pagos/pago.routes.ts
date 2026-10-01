@@ -12,6 +12,7 @@ import type { PagoController } from './pago.controller';
  * | POST   | /:id_pago/reembolso       | Entradas                | HU 3.1, HU 3.3 |
  * | GET    | /:id_pago/checkout        | Front de Pagos          | HU 1.1         |
  * | GET    | /                         | Promociones, UI         | HU 3.4         |
+ * | DELETE | /:id_pago                 | Administración (ADMIN)  | Operación BD   |
  */
 export function crearRouterPagos(controlador: PagoController, autenticar: RequestHandler): Router {
   const router = Router();
@@ -21,5 +22,6 @@ export function crearRouterPagos(controlador: PagoController, autenticar: Reques
   router.get('/:id_pago', controlador.obtener);
   router.get('/:id_pago/checkout', controlador.checkout);
   router.post('/:id_pago/reembolso', controlador.reembolsar);
+  router.delete('/:id_pago', controlador.eliminar);
   return router;
 }

@@ -51,15 +51,16 @@ npm run dev                        # http://localhost:5173
 1. En Swagger, **Authorize** con el token de `npm run token` y ejecutar `POST /api/v1/pagos/transacciones`.
 2. Abrir la `url_checkout` de la respuesta (`http://localhost:5173/?id_pago=...`).
 3. Pagar con la tarjeta de prueba `4242 4242 4242 4242` (fecha futura, CVC cualquiera). Para probar un rechazo: `4000 0000 0000 0002`.
-4. Reembolso: `POST /api/v1/pagos/{id_pago}/reembolso`.
+4. Reembolso o anulación: `POST /api/v1/pagos/{id_pago}/reembolso`.
+5. Eliminar un pago RECHAZADO o ANULADO (solo rol ADMIN, token de `npm run token -- usr-admin ADMIN`): `DELETE /api/v1/pagos/{id_pago}`.
 
 El token usado en Swagger y el de `frontend/.env.local` deben ser del mismo usuario.
 
 ### Pruebas
 ```bash
 cd backend
-npm test                 # 58 pruebas (requiere la BD de prueba DATABASE_URL_TEST)
-npm run test:integracion # colección Postman con Newman (backend corriendo con PASARELA=mock)
+npm test                 # 62 pruebas (requiere la BD de prueba DATABASE_URL_TEST)
+npm run test:integracion # colección Postman (28 casos, 47 aserciones) con Newman; backend corriendo con PASARELA=mock
 ```
 
 Más detalle del backend en [`backend/README.md`](backend/README.md) y del frontend en [`frontend/README.md`](frontend/README.md).

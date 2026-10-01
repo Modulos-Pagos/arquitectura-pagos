@@ -107,6 +107,13 @@ export class PagoController {
     });
   };
 
+  /** DELETE /api/v1/pagos/{id_pago} (solo ADMIN; pagos RECHAZADOS o ANULADOS) */
+  eliminar = async (req: Request, res: Response) => {
+    const idPago = validarIdPago(req.params.id_pago);
+    const eliminado = await this.servicio.eliminarPago(idPago, usuarioDe(req));
+    res.status(200).json({ ...eliminado, eliminado: true });
+  };
+
   /** POST /api/v1/pagos/webhooks/stripe (body crudo, sin JWT: se valida la firma de Stripe) */
   webhookStripe = async (req: Request, res: Response) => {
     const cuerpo = Buffer.isBuffer(req.body) ? req.body : Buffer.from('');

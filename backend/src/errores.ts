@@ -32,6 +32,12 @@ export const errores = {
     ),
   pagoNoReembolsable: (estado: string) =>
     new AppError(409, 'PAGO_NO_REEMBOLSABLE', `Un pago en estado ${estado} no se puede anular ni reembolsar`),
+  pagoNoEliminable: (estado: string) =>
+    new AppError(
+      409,
+      'PAGO_NO_ELIMINABLE',
+      `Un pago en estado ${estado} no se puede eliminar: solo se eliminan pagos RECHAZADOS o ANULADOS, sin reembolsos`,
+    ),
   transicionConcurrente: () =>
     new AppError(409, 'CAMBIO_CONCURRENTE', 'El estado del pago cambió mientras se procesaba la solicitud; reintente'),
   ordenInconsistente: (detalles: string[]) =>

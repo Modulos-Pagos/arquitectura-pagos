@@ -137,6 +137,29 @@ export class PagoRepository {
     });
   }
 
+  /**
+   * Elimina un pago que no movió dinero (DELETE de la BD).
+   * En la misma transacción: bloquea la fila, verifica el estado permitido y que no tenga reembolsos,
+   * desvincula los eventos de webhook (quedan como evidencia con id_pago NULL) y borra el pago.
+   */
+  async eliminar(
+    idPago: string,
+    estadosPermitidos: EstadoPago[],
+  ): Promise<{ resultado: 'eliminado' | 'no_existe' | 'no_permitido'; estado?: EstadoPago }> {
+    return this.enTransaccion(async (cliente) => {
+      const actual = await cliente.query('SELECT estado_pago FROM pagos WHERE id_pago = $1 FOR UPDATE', [idPago]);
+      const estado = actual.rows[0]?.estado_pago as EstadoPago | undefined;
+      if (!estado) return { resultado: 'no_existe' };
+      const reembolsos = await cliente.query('SELECT 1 FROM reembolsos WHERE id_pago = $1 LIMIT 1', [idPago]);
+      if (!estadosPermitidos.includes(estado) || (reembolsos.rowCount ?? 0) > 0) {
+        return { resultado: 'no_permitido', estado };
+      }
+      await cliente.query('UPDATE eventos_webhook_stripe SET id_pago = NULL WHERE id_pago = $1', [idPago]);
+      await cliente.query('DELETE FROM pagos WHERE id_pago = $1', [idPago]);
+      return { resultado: 'eliminado', estado };
+    });
+  }
+
   async listar(filtros: FiltrosListado): Promise<{ datos: Pago[]; total: number }> {
     const condiciones: string[] = [];
     const valores: unknown[] = [];

@@ -5,7 +5,7 @@ import type { PasarelaPago } from '../integraciones/pasarela/pasarela';
 import type { UsuarioAutenticado } from '../middlewares/autenticacion';
 import type { CrearTransaccionDto } from './pago.dto';
 import type { PagoRepository } from './pago.repository';
-import type { FiltrosListado, OrigenCambio, Pago, Reembolso } from './pago.types';
+import type { EstadoPago, FiltrosListado, OrigenCambio, Pago, Reembolso } from './pago.types';
 
 /**
  * Lógica de negocio del módulo de Pagos. No sabe nada de HTTP.
@@ -47,6 +47,9 @@ export interface ResultadoWebhook {
   id_pago: string | null;
   estado_pago: string | null;
 }
+
+/** Solo se eliminan pagos que no movieron dinero; APROBADO/REEMBOLSADO se conservan por trazabilidad. */
+export const ESTADOS_ELIMINABLES: EstadoPago[] = ['RECHAZADO', 'ANULADO'];
 
 export class PagoService {
   constructor(
@@ -316,6 +319,17 @@ export class PagoService {
       id_pago: pago?.id_pago ?? null,
       estado_pago: pago?.estado_pago ?? null,
     };
+  }
+
+  // ------------------------------------------------------------------
+  // DELETE /{id_pago} — eliminar un pago que no movió dinero (solo ADMIN)
+  // ------------------------------------------------------------------
+  async eliminarPago(idPago: string, usuario: UsuarioAutenticado): Promise<{ id_pago: string; estado_pago: string }> {
+    if (usuario.rol !== 'ADMIN') throw errores.noAutorizado('Solo un usuario con rol ADMIN puede eliminar pagos');
+    const { resultado, estado } = await this.repo.eliminar(idPago, ESTADOS_ELIMINABLES);
+    if (resultado === 'no_existe') throw errores.pagoNoEncontrado(idPago);
+    if (resultado === 'no_permitido') throw errores.pagoNoEliminable(estado ?? 'desconocido');
+    return { id_pago: idPago, estado_pago: estado as string };
   }
 
   // ------------------------------------------------------------------

@@ -14,7 +14,7 @@ entrega el `id_pago` a **Promociones** y permite **anular o reembolsar** cuando 
 | BD1–BD4: Diagrama relacional | [`docs/base-de-datos/diagrama-relacional.md`](docs/base-de-datos/diagrama-relacional.md) (generado desde la BD) |
 | BD3: Script de creación + diccionario | [`db/schema.sql`](db/schema.sql) · [`docs/base-de-datos/diccionario-datos.md`](docs/base-de-datos/diccionario-datos.md) |
 | CA1: Pruebas de funcionalidad | [`tests/`](tests) · resultado en [`docs/evidencias/pruebas-funcionales.txt`](docs/evidencias/pruebas-funcionales.txt) |
-| CA2: Pruebas de integración | [`postman/`](postman) (colección + entorno) · resultado en [`docs/evidencias/postman-integracion.txt`](docs/evidencias/postman-integracion.txt) · captura del Runner de Postman (41/41 OK) en [`docs/evidencias/postman-runner.jpg`](docs/evidencias/postman-runner.jpg) |
+| CA2: Pruebas de integración | [`postman/`](postman) (colección + entorno) · resultado en [`docs/evidencias/postman-integracion.txt`](docs/evidencias/postman-integracion.txt) · captura del Runner de Postman en [`docs/evidencias/postman-runner.jpg`](docs/evidencias/postman-runner.jpg) |
 | Responsables por rol | [`RESPONSABLES.md`](../RESPONSABLES.md) |
 
 ---
@@ -30,7 +30,7 @@ sequenceDiagram
     participant S as Stripe
     actor U as Comprador
 
-    E->>P: POST /api/v1/pagos/transacciones {id_reserva, id_evento, total, cantidad_entradas} + JWT
+    E->>P: POST /api/v1/pagos/transacciones {id_reserva, total, cantidad_entradas, id_evento?} + JWT (header o token_sesion)
     P->>DB: ¿existe pago para id_reserva? (idempotencia)
     P->>E: GET /api/v1/entradas/reservas/{id_reserva} (verifica total y cantidad)
     P->>S: POST /v1/checkout/sessions (CLP)
@@ -84,6 +84,7 @@ Entradas crea el pago y redirige al usuario a `url_checkout`. El front obtiene m
 | `GET` | `/api/v1/pagos/{id_pago}/checkout` | Front de Pagos | HU 1.1 |
 | `POST` | `/api/v1/pagos/{id_pago}/reembolso` | Entradas | HU 3.1, HU 3.3 |
 | `GET` | `/api/v1/pagos?id_usuario=&id_reserva=&estado=` | **Promociones**, front | HU 3.4 |
+| `DELETE` | `/api/v1/pagos/{id_pago}` | Administración (rol `ADMIN`) | Eliminar pagos RECHAZADOS/ANULADOS de la BD |
 | `POST` | `/api/v1/pagos/webhooks/stripe` | Stripe | HU 1.3, HU 1.4 |
 | `GET` | `/health` | plataforma | — |
 
@@ -97,7 +98,17 @@ Token JWT de **Auth** (`Authorization: Bearer ...`, HS256, claims `id_usuario`/`
 | Consultar pago | Sí, solo los suyos | No (403) | Sí |
 | Listar pagos | Sí, solo los suyos | No (403) | Sí, todos |
 | Anular / reembolsar | Sí, solo los suyos | No (403) | Sí |
+| Eliminar pago | No (403) | No (403) | Solo `ADMIN` (SERVICIO → 403) |
 | Webhook Stripe | sin JWT, se valida la firma `Stripe-Signature` | | |
+
+### Operaciones sobre la base de datos (crear, modificar, eliminar y consultar)
+
+| Operación | SQL | Endpoint |
+|---|---|---|
+| Crear | `INSERT INTO pagos` | `POST /api/v1/pagos/transacciones` |
+| Modificar | `UPDATE pagos SET estado_pago` (+ `INSERT INTO reembolsos`) | `POST /{id_pago}/reembolso`, webhook y polling |
+| Eliminar | `DELETE FROM pagos` (solo RECHAZADO/ANULADO, rol ADMIN) | `DELETE /api/v1/pagos/{id_pago}` |
+| Consultar | `SELECT` | `GET /api/v1/pagos/{id_pago}`, `GET /api/v1/pagos` |
 
 ## 3. Cómo ejecutar
 
@@ -142,12 +153,12 @@ npm run token -- svc-entradas SERVICIO # token de servicio (Entradas / Promocion
 
 | Comando | Qué hace |
 |---|---|
-| `npm test` | 58 pruebas funcionales y unitarias (`node:test`) contra PostgreSQL real (BD `DATABASE_URL_TEST`, se reinicia en cada corrida) |
+| `npm test` | 62 pruebas funcionales y unitarias (`node:test`) contra PostgreSQL real (BD `DATABASE_URL_TEST`, se reinicia en cada corrida) |
 | `npm run test:evidencia` | Igual, y guarda el resultado en `docs/evidencias/` (evidencia CA1) |
 | `npm run test:integracion` | Ejecuta la colección Postman con Newman (servicio levantado con `PASARELA=mock`) y guarda el JUnit en `docs/evidencias/` (evidencia CA2) |
 
-La colección [`postman/Pagos-TITEC.postman_collection.json`](postman/Pagos-TITEC.postman_collection.json) tiene 24 casos con resultado esperado
-y 39 aserciones: creación, idempotencia, validaciones, autorización, webhook, listado para Promociones, reembolso y anulación.
+La colección [`postman/Pagos-TITEC.postman_collection.json`](postman/Pagos-TITEC.postman_collection.json) tiene 28 casos con resultado esperado
+y 47 aserciones: creación, request de Entradas v1.0, idempotencia, validaciones, autorización, webhook, listado para Promociones, reembolso, anulación y eliminación (DELETE).
 Importarla junto a [`postman/pagos-local.postman_environment.json`](postman/pagos-local.postman_environment.json) y usar **Run collection**.
 Si cambian `JWT_SECRET`, regenerar el entorno con `npm run postman:env`.
 

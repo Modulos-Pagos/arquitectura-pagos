@@ -62,7 +62,7 @@ export interface Respuesta {
 
 export async function llamar(
   url: string,
-  metodo: 'GET' | 'POST',
+  metodo: 'GET' | 'POST' | 'DELETE',
   ruta: string,
   opciones: { token?: string; body?: unknown; headers?: Record<string, string> } = {},
 ): Promise<Respuesta> {

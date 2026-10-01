@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Microservicio de Pagos — TicketU (TITEC 2026-2)
-  version: 2.2.0
+  version: 2.3.0
   description: |
     Servicios **propios** del módulo de Pagos (ítem BE1) y servicios que **otros módulos consumen** (ítem BE3).
 
@@ -41,6 +41,7 @@ info:
     | Consultar pago | Sí, solo los suyos | No (403) | Sí |
     | Listar pagos | Sí, solo los suyos | No (403) | Sí, todos (Promociones) |
     | Anular / reembolsar | Sí, solo los suyos | No (403) | Sí (Entradas) |
+    | Eliminar pago | No (403) | No (403) | Solo `ADMIN` (SERVICIO → 403) |
     | Webhook Stripe | — sin JWT: se valida la firma `Stripe-Signature` | | |
 
     ### Formato de error (todas las respuestas 4xx/5xx)
@@ -59,6 +60,8 @@ tags:
     description: Servicios para la interfaz de checkout y los pagos del comprador
   - name: Stripe (webhook)
     description: Aviso asíncrono de la pasarela externa
+  - name: Administración
+    description: Operaciones de mantenimiento de la BD, solo rol ADMIN
   - name: Operación
     description: Salud del servicio
 security:
@@ -155,6 +158,34 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/NoAutorizado' }
         '404': { $ref: '#/components/responses/PagoNoEncontrado' }
+        '500': { $ref: '#/components/responses/ErrorInterno' }
+    delete:
+      tags: [Administración]
+      operationId: eliminarPago
+      summary: Eliminar un pago que no movió dinero (solo ADMIN)
+      description: |
+        Borra el registro del pago de la base de datos. Solo se permiten pagos `RECHAZADO` o `ANULADO`
+        sin reembolsos (no hubo cobro). Los pagos `PENDIENTE`, `APROBADO` y `REEMBOLSADO` se conservan
+        por trazabilidad y responden **409** (`PAGO_NO_ELIMINABLE`).
+        Los eventos de webhook asociados no se borran: quedan como evidencia con `id_pago = NULL`.
+      parameters:
+        - $ref: '#/components/parameters/IdPago'
+      responses:
+        '200':
+          description: Pago eliminado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PagoEliminado' }
+        '400': { $ref: '#/components/responses/ErrorValidacion' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/NoAutorizado' }
+        '404': { $ref: '#/components/responses/PagoNoEncontrado' }
+        '409':
+          description: El pago movió dinero o sigue en curso (`PAGO_NO_ELIMINABLE`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: PAGO_NO_ELIMINABLE, mensaje: 'Un pago en estado APROBADO no se puede eliminar: solo se eliminan pagos RECHAZADOS o ANULADOS, sin reembolsos' }
         '500': { $ref: '#/components/responses/ErrorInterno' }
 
   /api/v1/pagos/{id_pago}/checkout:
@@ -413,6 +444,13 @@ components:
             total: { type: integer, example: 42 }
             total_paginas: { type: integer, example: 3 }
 
+    PagoEliminado:
+      type: object
+      required: [id_pago, estado_pago, eliminado]
+      properties:
+        id_pago: { type: string, format: uuid }
+        estado_pago: { type: string, enum: [RECHAZADO, ANULADO], description: 'Estado que tenía el pago al eliminarlo' }
+        eliminado: { type: boolean, example: true }
     ReembolsoRequest:
       type: object
       required: [motivo]

@@ -15,7 +15,8 @@ import {
 
 /**
  * Pruebas funcionales de la API contra PostgreSQL real (BD pagos_test),
- * con la pasarela simulada. Cubren las historias HU 1.1, 1.3, 1.4, 1.6, 3.1, 3.3 y 3.4.
+ * con la pasarela simulada. Cubren las historias HU 1.1, 1.3, 1.4, 1.6, 3.1, 3.3 y 3.4,
+ * más el DELETE de administración (crear, modificar, eliminar y consultar en la BD).
  */
 
 const COMPRADOR = 'usr-comprador-1';
@@ -454,5 +455,69 @@ describe('GET /api/v1/pagos — listado para Promociones e historial del usuario
     assert.deepEqual(r.body.paginacion, { pagina: 2, limite: 1, total: 2, total_paginas: 2 });
     const malo = await llamar(app.url, 'GET', '/api/v1/pagos?estado=PAGADO', { token: token(COMPRADOR) });
     assert.equal(malo.status, 400);
+  });
+});
+
+describe('DELETE /{id_pago} — eliminar un pago de la BD (solo ADMIN)', () => {
+  const admin = () => token('usr-admin', 'ADMIN');
+
+  async function anular(idPago: string) {
+    const r = await llamar(app.url, 'POST', `/api/v1/pagos/${idPago}/reembolso`, {
+      token: token('svc-entradas', 'SERVICIO'),
+      body: { motivo: 'Reserva liberada por Entradas' },
+    });
+    assert.equal(r.body.estado_pago, 'ANULADO');
+  }
+
+  it('ADMIN elimina un pago ANULADO y deja de existir en la BD (404 al consultarlo)', async () => {
+    const { id_pago } = await crearPago();
+    await anular(id_pago);
+    const r = await llamar(app.url, 'DELETE', `/api/v1/pagos/${id_pago}`, { token: admin() });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual(r.body, { id_pago, estado_pago: 'ANULADO', eliminado: true });
+    assert.equal(await app.deps.repo.buscarPorId(id_pago), null);
+    const consulta = await llamar(app.url, 'GET', `/api/v1/pagos/${id_pago}`, { token: admin() });
+    assert.equal(consulta.status, 404);
+  });
+
+  it('un pago RECHAZADO con eventos de webhook se elimina y los eventos quedan como evidencia', async () => {
+    const { id_pago } = await crearPago();
+    const evento = eventoStripe('checkout.session.expired', await sesionDe(id_pago), id_pago);
+    await llamar(app.url, 'POST', '/api/v1/pagos/webhooks/stripe', { body: evento });
+    const r = await llamar(app.url, 'DELETE', `/api/v1/pagos/${id_pago}`, { token: admin() });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.estado_pago, 'RECHAZADO');
+    assert.equal(await app.deps.repo.eventoWebhookExiste(evento.id), true);
+  });
+
+  it('no elimina pagos PENDIENTES, APROBADOS ni REEMBOLSADOS (409 PAGO_NO_ELIMINABLE)', async () => {
+    const pendiente = await crearPago();
+    const aprobado = await crearPago();
+    await aprobar(aprobado.id_pago);
+    const reembolsado = await crearPago();
+    await aprobar(reembolsado.id_pago);
+    await llamar(app.url, 'POST', `/api/v1/pagos/${reembolsado.id_pago}/reembolso`, {
+      token: token('svc-entradas', 'SERVICIO'),
+      body: { motivo: 'Reembolso de prueba' },
+    });
+    for (const { id_pago } of [pendiente, aprobado, reembolsado]) {
+      const r = await llamar(app.url, 'DELETE', `/api/v1/pagos/${id_pago}`, { token: admin() });
+      assert.equal(r.status, 409, JSON.stringify(r.body));
+      assert.equal(r.body.error, 'PAGO_NO_ELIMINABLE');
+      assert.ok(await app.deps.repo.buscarPorId(id_pago), 'el pago sigue en la BD');
+    }
+  });
+
+  it('solo ADMIN: el dueño y el rol SERVICIO reciben 403; sin token 401; id inexistente 404', async () => {
+    const { id_pago } = await crearPago();
+    await anular(id_pago);
+    const dueno = await llamar(app.url, 'DELETE', `/api/v1/pagos/${id_pago}`, { token: token(COMPRADOR) });
+    assert.equal(dueno.status, 403);
+    const servicio = await llamar(app.url, 'DELETE', `/api/v1/pagos/${id_pago}`, { token: token('svc', 'SERVICIO') });
+    assert.equal(servicio.status, 403);
+    const sinToken = await llamar(app.url, 'DELETE', `/api/v1/pagos/${id_pago}`);
+    assert.equal(sinToken.status, 401);
+    const noExiste = await llamar(app.url, 'DELETE', '/api/v1/pagos/00000000-0000-4000-8000-000000000000', { token: admin() });
+    assert.equal(noExiste.status, 404);
   });
 });

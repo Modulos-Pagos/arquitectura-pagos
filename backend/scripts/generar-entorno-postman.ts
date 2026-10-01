@@ -21,6 +21,7 @@ const valores = [
   { key: 'tokenComprador', value: firmarJwt({ id_usuario: 'usr-postman-1', rol: 'COMPRADOR' }, secreto, unAnio) },
   { key: 'tokenOtroUsuario', value: firmarJwt({ id_usuario: 'usr-postman-2', rol: 'COMPRADOR' }, secreto, unAnio) },
   { key: 'tokenServicio', value: firmarJwt({ id_usuario: 'svc-entradas', rol: 'SERVICIO' }, secreto, unAnio) },
+  { key: 'tokenAdmin', value: firmarJwt({ id_usuario: 'usr-admin', rol: 'ADMIN' }, secreto, unAnio) },
 ];
 const entorno = {
   id: 'b7f3c2a1-9d4e-4f6a-8b2c-pagos-local',

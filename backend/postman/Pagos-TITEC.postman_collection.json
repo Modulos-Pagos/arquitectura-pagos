@@ -1339,6 +1339,186 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "6. Administración → Eliminar pago (DELETE en la BD)",
+      "description": "Operación de eliminación sobre la base de datos. Solo rol ADMIN y solo pagos RECHAZADOS o ANULADOS sin reembolsos.",
+      "item": [
+        {
+          "name": "Rol SERVICIO no puede eliminar (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/{{idPago2}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "{{idPago2}}"
+              ]
+            },
+            "description": "**Resultado esperado:** 403. Solo un token con rol `ADMIN` puede eliminar pagos.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenServicio}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pago REEMBOLSADO no se elimina (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('Código PAGO_NO_ELIMINABLE', () => pm.expect(pm.response.json().error).to.eql('PAGO_NO_ELIMINABLE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/{{idPago}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "{{idPago}}"
+              ]
+            },
+            "description": "**Resultado esperado:** 409 `PAGO_NO_ELIMINABLE`: los pagos que movieron dinero se conservan por trazabilidad.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ADMIN elimina el pago ANULADO (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Pago eliminado', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b.eliminado).to.eql(true);",
+                  "  pm.expect(b.estado_pago).to.eql('ANULADO');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/{{idPago2}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "{{idPago2}}"
+              ]
+            },
+            "description": "**Resultado esperado:** 200 con `eliminado: true`. El registro se borra de la tabla `pagos`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "El pago eliminado ya no existe (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/{{idPago2}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "{{idPago2}}"
+              ]
+            },
+            "description": "**Resultado esperado:** 404 `PAGO_NO_ENCONTRADO`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [

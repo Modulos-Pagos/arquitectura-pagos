@@ -1,6 +1,6 @@
 # Diagrama relacional — Microservicio de Pagos
 
-> Generado automáticamente desde la base de datos con `npm run db:docs` (2026-09-28T19:35:07.131Z).
+> Generado automáticamente desde la base de datos con `npm run db:docs` (2026-09-30T20:44:03.452Z).
 > GitHub dibuja el diagrama a partir del bloque Mermaid. Para una imagen: DBeaver/pgAdmin > ER Diagram,
 > o en Supabase: Database > Schema Visualizer.
 
