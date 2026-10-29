@@ -10,7 +10,7 @@ Equipo y responsables por rol: [`RESPONSABLES.md`](RESPONSABLES.md).
 |---|---|---|
 | [`backend/`](backend) | Microservicio (Node.js 22, TypeScript, Express, PostgreSQL/Supabase, Stripe, RabbitMQ) | 3004 (`npm run dev` y Docker) |
 | [`frontend/`](frontend) | Pantalla de pago (Next.js + Stripe Elements) | 5173 |
-| [`docs/contratos/`](docs/contratos) | Contratos de interfaz con Entradas (v2.4), Auth (v1.3) y Promociones (v1.0) | — |
+| [`docs/contratos/`](docs/contratos) | Contratos de interfaz con Entradas (v2.4), Auth (v1.4) y Promociones (v1.0) | — |
 
 ## Integración con la plataforma TicketU
 
@@ -19,7 +19,7 @@ Sigue la guía del Platform Team ([`FWizav/backendticketU`](https://github.com/F
 | Con | Qué hace Pagos | Contrato |
 |---|---|---|
 | **API Gateway** | Rutas bajo `/api/pagos/...` (el Gateway no reescribe el path); contenedor `pagos-service` en la red `plataforma-eventos-net`; en el Gateway `PAGOS_SERVICE_URL=http://pagos-service:3000` | Guía del Platform Team |
-| **Auth** | En cada petición valida la cookie `jwt` con `GET /internal/validar-sesion` (+ `x-api-key`); roles `usuario`, `organizador`, `staff`; si Auth no responde, 503 y no se cobra | [`Contrato_Auth_Pagos_v1.3.docx`](docs/contratos/Contrato_Auth_Pagos_v1.3.docx) |
+| **Auth** | En cada petición valida la cookie `jwt` con `GET /internal/validar-sesion` (+ `x-api-key`); roles `usuario`, `organizador`, `staff`; si Auth no responde, 503 y no se cobra | [`Contrato_Auth_Pagos_v1.4.docx`](docs/contratos/Contrato_Auth_Pagos_v1.4.docx) |
 | **Entradas/Inventario** | Recibe `POST /api/pagos/transacciones` con la cookie del comprador reenviada; verifica la reserva (`GET /api/entradas/reservas/{id}`, prefijo que exige el API Gateway); responde el estado y anula/reembolsa | [`Contrato_Pagos_Entradas_v2.4.docx`](docs/contratos/Contrato_Pagos_Entradas_v2.4.docx) |
 | **RabbitMQ** | Publica `pago.realizado`, `pago.rechazado`, `pago.anulado`, `pago.reembolsado` en `ticketu.events` (`ticketu-rabbitmq`, vhost `ticketu`) | Guía del Platform Team |
 | **Promociones** | Publica `pago.completado` con `id_pago`, `id_usuario`, `id_evento` y `nombre_codigo` | [`Contrato_Promociones_Pagos_v1.0.pdf`](docs/contratos/Contrato_Promociones_Pagos_v1.0.pdf) |
@@ -60,7 +60,7 @@ Pagos queda en `http://localhost:8080/api/pagos/...` (por el Gateway). La sesió
 
 ### Solo nuestro módulo (desarrollo, sin el servicio de Auth)
 
-Pagos siempre valida la sesión con Auth por HTTP (contrato v1.3: no valida JWT por su cuenta). Sin el Auth real se usa el
+Pagos siempre valida la sesión con Auth por HTTP (contrato v1.4: no valida JWT por su cuenta). Sin el Auth real se usa el
 **Auth simulado** del backend, que expone el mismo `GET /internal/validar-sesion` (no es parte de Pagos; solo desarrollo).
 
 **Backend (terminal 1 y 2)**
