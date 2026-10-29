@@ -10,7 +10,7 @@ Equipo y responsables por rol: [`RESPONSABLES.md`](RESPONSABLES.md).
 |---|---|---|
 | [`backend/`](backend) | Microservicio (Node.js 22, TypeScript, Express, PostgreSQL/Supabase, Stripe, RabbitMQ) | 3004 (`npm run dev` y Docker) |
 | [`frontend/`](frontend) | Pantalla de pago (Next.js + Stripe Elements) | 5173 |
-| [`docs/contratos/`](docs/contratos) | Contratos de interfaz con Entradas (v2.4), Auth (v1.4) y Promociones (v1.0) | — |
+| [`docs/contratos/`](docs/contratos) | Contratos de interfaz con Entradas (v2.4), Auth (v1.4) y Promociones (v1.1) | — |
 
 ## Integración con la plataforma TicketU
 
@@ -22,7 +22,7 @@ Sigue la guía del Platform Team ([`FWizav/backendticketU`](https://github.com/F
 | **Auth** | En cada petición valida la cookie `jwt` con `GET /internal/validar-sesion` (+ `x-api-key`); roles `usuario`, `organizador`, `staff`; si Auth no responde, 503 y no se cobra | [`Contrato_Auth_Pagos_v1.4.docx`](docs/contratos/Contrato_Auth_Pagos_v1.4.docx) |
 | **Entradas/Inventario** | Recibe `POST /api/pagos/transacciones` con la cookie del comprador reenviada; verifica la reserva (`GET /api/entradas/reservas/{id}`, prefijo que exige el API Gateway); responde el estado y anula/reembolsa | [`Contrato_Pagos_Entradas_v2.4.docx`](docs/contratos/Contrato_Pagos_Entradas_v2.4.docx) |
 | **RabbitMQ** | Publica `pago.realizado`, `pago.rechazado`, `pago.anulado`, `pago.reembolsado` en `ticketu.events` (`ticketu-rabbitmq`, vhost `ticketu`) | Guía del Platform Team |
-| **Promociones** | Publica `pago.completado` con `id_pago`, `id_usuario`, `id_evento` y `nombre_codigo` | [`Contrato_Promociones_Pagos_v1.0.pdf`](docs/contratos/Contrato_Promociones_Pagos_v1.0.pdf) |
+| **Promociones** | Publica `pago.completado` con `id_pago`, `id_usuario`, `id_evento` y `nombre_codigo` | [`Contrato_Promociones_Pagos_v1.1.docx`](docs/contratos/Contrato_Promociones_Pagos_v1.1.docx) |
 
 Detalle en [`backend/README.md`](backend/README.md) § 6. Pasos para levantar todo junto (Gateway, RabbitMQ, Auth, front común) y hacer la prueba de punta a punta: [`INTEGRACION.md`](INTEGRACION.md).
 
