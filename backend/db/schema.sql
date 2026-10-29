@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS pagos (
     id_pago                   UUID          NOT NULL DEFAULT gen_random_uuid(),
     id_reserva                VARCHAR(64)   NOT NULL,
     id_usuario                VARCHAR(64)   NOT NULL,
+    id_evento                 VARCHAR(64)   NULL,
+    nombre_codigo             VARCHAR(50)   NULL,
     monto                     INTEGER       NOT NULL,
     moneda                    CHAR(3)       NOT NULL DEFAULT 'CLP',
     estado_pago               VARCHAR(20)   NOT NULL DEFAULT 'PENDIENTE',
@@ -57,21 +59,27 @@ CREATE TABLE IF NOT EXISTS pagos (
     )
 );
 
+-- Migración v2.5 (contrato Promociones ↔ Pagos): agrega las columnas en bases creadas con versiones anteriores.
+ALTER TABLE pagos ADD COLUMN IF NOT EXISTS id_evento     VARCHAR(64) NULL;
+ALTER TABLE pagos ADD COLUMN IF NOT EXISTS nombre_codigo VARCHAR(50) NULL;
+
 CREATE INDEX IF NOT EXISTS idx_pagos_id_usuario  ON pagos (id_usuario);
 CREATE INDEX IF NOT EXISTS idx_pagos_estado_pago ON pagos (estado_pago);
 
-COMMENT ON TABLE  pagos IS 'Intención de pago de una reserva de entradas. Un registro por reserva (idempotencia) con su estado y los datos de la sesión de Stripe.';
+COMMENT ON TABLE  pagos IS 'Intención de pago de una reserva de entradas. Un registro por reserva (idempotencia) con su estado y los identificadores del cobro en Stripe.';
 COMMENT ON COLUMN pagos.id_pago                  IS 'Identificador único del pago (UUID v4). Se entrega a Entradas y Promociones.';
 COMMENT ON COLUMN pagos.id_reserva               IS 'Referencia a la reserva del módulo Entradas/Inventario (sin FK). Llave de idempotencia: una reserva tiene como máximo un pago.';
 COMMENT ON COLUMN pagos.id_usuario               IS 'Referencia al usuario comprador (módulo Auth, sin FK). Se obtiene del token JWT, nunca del body.';
+COMMENT ON COLUMN pagos.id_evento                IS 'Referencia al evento de la compra (módulo Catálogo/Panel, sin FK). La envía Entradas al crear el pago; se reenvía a Promociones en el evento pago.completado.';
+COMMENT ON COLUMN pagos.nombre_codigo            IS 'Código de descuento aplicado a la compra (módulo Promociones, sin FK), p. ej. DESC50. NULL si no se usó código. Se reenvía a Promociones en pago.completado para descontar un uso.';
 COMMENT ON COLUMN pagos.monto                    IS 'Total a cobrar en la moneda indicada (CLP, sin decimales). Viene como "total" desde Entradas.';
 COMMENT ON COLUMN pagos.moneda                   IS 'Código ISO 4217 de la moneda. Por defecto CLP.';
 COMMENT ON COLUMN pagos.estado_pago              IS 'Estado del pago: PENDIENTE, APROBADO, RECHAZADO, ANULADO (cancelado antes de cobrar) o REEMBOLSADO (cobrado y devuelto).';
 COMMENT ON COLUMN pagos.motivo_rechazo           IS 'Descripción del motivo cuando el estado es RECHAZADO (obligatorio en ese caso).';
-COMMENT ON COLUMN pagos.stripe_session_id        IS 'Id de la Checkout Session de Stripe (cs_...). Permite conciliar webhooks y consultar el estado.';
-COMMENT ON COLUMN pagos.stripe_payment_intent_id IS 'Id del PaymentIntent de Stripe (pi_...), disponible una vez pagado. Necesario para reembolsar.';
-COMMENT ON COLUMN pagos.url_checkout             IS 'URL de Stripe donde el usuario completa el pago. Se reenvía si Entradas reintenta la misma reserva.';
-COMMENT ON COLUMN pagos.fecha_expiracion         IS 'Fecha y hora en que expira la sesión de checkout (mínimo 30 minutos según Stripe).';
+COMMENT ON COLUMN pagos.stripe_session_id        IS 'Id de la Checkout Session de Stripe (cs_...). Solo en el método checkout (página de Stripe); NULL en el método formulario. Permite conciliar webhooks y consultar el estado.';
+COMMENT ON COLUMN pagos.stripe_payment_intent_id IS 'Id del PaymentIntent de Stripe (pi_...). En el método formulario se crea junto con el pago; en el método checkout se obtiene al pagar. Necesario para anular o reembolsar.';
+COMMENT ON COLUMN pagos.url_checkout             IS 'URL donde el comprador paga: el formulario del front de Pagos (método formulario, por defecto) o la página de Stripe Checkout. Se reenvía si Entradas reintenta la misma reserva.';
+COMMENT ON COLUMN pagos.fecha_expiracion         IS 'Fecha y hora en que expira la sesión de Stripe Checkout (mínimo 30 minutos). NULL en el método formulario.';
 COMMENT ON COLUMN pagos.fecha_creacion           IS 'Fecha y hora de creación de la intención de pago (se envía a Entradas).';
 COMMENT ON COLUMN pagos.fecha_actualizacion      IS 'Fecha y hora de la última modificación del registro (mantenida por trigger).';
 
@@ -110,6 +118,29 @@ COMMENT ON COLUMN reembolsos.fecha_creacion   IS 'Fecha y hora en que se solicit
 -- ---------------------------------------------------------------------
 -- Tabla: eventos_webhook_stripe (recepción de avisos de la API externa)
 -- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS destinatarios_pago (
+    id_pago                  UUID          NOT NULL,
+    nombre                   VARCHAR(120)  NOT NULL,
+    email                    VARCHAR(254)  NOT NULL,
+    rut                      VARCHAR(12)   NULL,
+    fecha_registro           TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    CONSTRAINT pk_destinatarios_pago PRIMARY KEY (id_pago),
+    CONSTRAINT fk_destinatarios_pago_pagos FOREIGN KEY (id_pago)
+        REFERENCES pagos (id_pago) ON DELETE CASCADE,
+    CONSTRAINT ck_destinatarios_pago_email CHECK (email LIKE '%_@_%'),
+    CONSTRAINT ck_destinatarios_pago_rut CHECK (rut IS NULL OR rut ~ '^[0-9]{7,8}-[0-9K]$')
+);
+
+-- Migración v2.6 (contrato Auth v1.3: Auth no expone la búsqueda de usuarios por correo).
+ALTER TABLE destinatarios_pago DROP COLUMN IF EXISTS id_usuario_destinatario;
+
+COMMENT ON TABLE  destinatarios_pago IS 'Persona a quien se le emite la entrada cuando el comprador compra para otra persona. Sin fila = la entrada es para el comprador.';
+COMMENT ON COLUMN destinatarios_pago.id_pago                 IS 'Pago al que pertenece (FK a pagos, 1 a 1). Se borra junto con el pago.';
+COMMENT ON COLUMN destinatarios_pago.nombre                  IS 'Nombre completo del destinatario (el que aparecerá en la entrada).';
+COMMENT ON COLUMN destinatarios_pago.email                   IS 'Correo del destinatario, para que Entradas/Notificaciones le envíen la entrada.';
+COMMENT ON COLUMN destinatarios_pago.rut                     IS 'RUT del destinatario con dígito verificador (12345678-9), opcional.';
+COMMENT ON COLUMN destinatarios_pago.fecha_registro          IS 'Fecha y hora en que se registró o cambió el destinatario.';
+
 CREATE TABLE IF NOT EXISTS eventos_webhook_stripe (
     id_evento_stripe  VARCHAR(255)  NOT NULL,
     tipo_evento       VARCHAR(100)  NOT NULL,
@@ -125,7 +156,7 @@ CREATE INDEX IF NOT EXISTS idx_eventos_webhook_stripe_id_pago ON eventos_webhook
 
 COMMENT ON TABLE  eventos_webhook_stripe IS 'Eventos recibidos desde Stripe por webhook. Evita procesar dos veces el mismo evento y deja evidencia de la respuesta de la pasarela.';
 COMMENT ON COLUMN eventos_webhook_stripe.id_evento_stripe IS 'Id del evento en Stripe (evt_...). Llave primaria para deduplicar reintentos.';
-COMMENT ON COLUMN eventos_webhook_stripe.tipo_evento      IS 'Tipo de evento de Stripe (ej: checkout.session.completed, checkout.session.expired).';
+COMMENT ON COLUMN eventos_webhook_stripe.tipo_evento      IS 'Tipo de evento de Stripe (ej: payment_intent.succeeded, checkout.session.completed, checkout.session.expired).';
 COMMENT ON COLUMN eventos_webhook_stripe.id_pago          IS 'Pago asociado al evento (FK a pagos). NULL si el evento no corresponde a un pago conocido o si el pago fue eliminado por un ADMIN.';
 COMMENT ON COLUMN eventos_webhook_stripe.payload          IS 'Contenido completo del evento tal como lo envió Stripe (JSON).';
 COMMENT ON COLUMN eventos_webhook_stripe.fecha_recepcion  IS 'Fecha y hora en que se recibió el evento.';

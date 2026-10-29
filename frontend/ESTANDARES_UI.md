@@ -12,12 +12,13 @@ El front end de Pagos sigue el estándar visual acordado entre los módulos de T
 | 6 | Un solo modo (claro) | [`app/layout.tsx`](app/layout.tsx): fondo blanco, texto azul marino |
 | 7–10 | Poppins (títulos, 600–700) e Inter (cuerpo, 400–600) | [`app/layout.tsx`](app/layout.tsx) con `next/font` |
 | 13 | Ancho máximo 1200px | `max-w-[1200px]` en [`Header.tsx`](components/layout/Header.tsx) y [`Footer.tsx`](components/layout/Footer.tsx) |
-| 15 | Header TicketAzul: logo + menú (Inicio, Mis eventos, Promociones, Configuración, Mi cuenta), buscar + carrito + avatar; 64px, sticky | [`components/layout/Header.tsx`](components/layout/Header.tsx) (`h-16 sticky`, menú hamburguesa en móvil) |
+| 15 | Header TicketAzul: logo + menú (Inicio, Mis eventos, Promociones, Configuración, Mi cuenta), buscar + campana de notificaciones + carrito + avatar; 64px, sticky | [`components/layout/Header.tsx`](components/layout/Header.tsx) (`h-16 sticky`, menú hamburguesa en móvil) |
 | 16–17 | Botones e inputs: alto 40px, radio 8px, borde #D8DFF0, foco con halo 2px, error #B3261E | [`CheckoutForm.tsx`](components/checkout/CheckoutForm.tsx), [`Confirmacion.tsx`](components/checkout/Confirmacion.tsx), estilos de foco/error en [`app/globals.css`](app/globals.css) |
 | 18 | Badges tipo pill | `rounded-full` en [`OrderSummary.tsx`](components/checkout/OrderSummary.tsx) |
 | 20 | Íconos outline (Lucide) | `lucide-react` en los componentes |
 | 21 | Radio 12px en tarjetas | `rounded-xl` en [`OrderSummary.tsx`](components/checkout/OrderSummary.tsx) |
 | 26 | Foco visible: outline 2px #2F4374 | [`app/globals.css`](app/globals.css) |
 | 32 | Errores de validación: #B3261E, 12px, bajo el campo, con ícono | [`CheckoutForm.tsx`](components/checkout/CheckoutForm.tsx) |
+| — | Campana de notificaciones (acordada con el equipo Notificaciones): círculo #2F4374 de 36×36 px, campana outline blanca de 20 px y trazo 2 px, área táctil de 44×44 px; el panel se abre/cierra con la campana y se cierra con clic fuera o Escape | [`components/layout/Notificaciones.tsx`](components/layout/Notificaciones.tsx) |
 
 La sección B del checklist (estados y tarjetas de evento) corresponde al Panel Organizador y no aplica al checkout de Pagos.

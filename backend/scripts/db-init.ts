@@ -8,7 +8,7 @@ import path from 'node:path';
 import { cargarArchivoEnv } from '../src/config/env';
 import { crearPool } from '../src/db/pool';
 
-const TABLAS = ['eventos_webhook_stripe', 'reembolsos', 'historial_estados_pago', 'pagos'];
+const TABLAS = ['eventos_webhook_stripe', 'reembolsos', 'destinatarios_pago', 'historial_estados_pago', 'pagos'];
 
 export async function inicializarBase(databaseUrl: string, databaseSsl: boolean, reset: boolean): Promise<void> {
   const pool = crearPool({ databaseUrl, databaseSsl });

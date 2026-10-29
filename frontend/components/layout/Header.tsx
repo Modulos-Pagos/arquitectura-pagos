@@ -1,10 +1,11 @@
-import { Menu, Search, ShoppingCart, Ticket } from 'lucide-react';
+import { Menu, Search, ShoppingCart, Ticket, User } from 'lucide-react';
+import Notificaciones, { type Notificacion } from '@/components/layout/Notificaciones';
 
 /**
- * Header estándar TicketAzul (checklist de consistencia visual, fila 15):
+ * Header estándar Ticket-U (checklist de consistencia visual, fila 15):
  * azul marino, alto 64px, sticky; logo a la izquierda + menú
  * (Inicio / Mis eventos / Promociones / Configuración / Mi cuenta);
- * buscar + carrito + avatar a la derecha.
+ * buscar + notificaciones (campana) + carrito + avatar a la derecha.
  *
  * Los enlaces apuntan al portal común (NEXT_PUBLIC_PORTAL_URL); mientras no exista, a "#".
  * En pantallas chicas el menú se despliega con el botón de hamburguesa (<details>, sin JS).
@@ -24,11 +25,12 @@ const enlace = (ruta: string) => (PORTAL ? `${PORTAL}${ruta}` : '#');
 const CLASE_ICONO =
   'w-10 h-10 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors';
 
-export default function Header({ iniciales = 'MG' }: { iniciales?: string }) {
+/** iniciales: del comprador según Auth; mientras cargan (o si Auth no responde) se muestra un ícono. */
+export default function Header({ iniciales, notificaciones = [] }: { iniciales?: string; notificaciones?: Notificacion[] }) {
   return (
     <header className="bg-ticket-primary text-white h-16 sticky top-0 z-50 shadow-tarjeta">
       <div className="max-w-[1200px] h-full mx-auto px-4 md:px-6 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-3 sm:gap-8 min-w-0">
           {/* Menú en móvil */}
           <details className="lg:hidden relative">
             <summary aria-label="Abrir menú" className={`${CLASE_ICONO} list-none cursor-pointer`}>
@@ -53,7 +55,7 @@ export default function Header({ iniciales = 'MG' }: { iniciales?: string }) {
           {/* Logo */}
           <a href={enlace('/')} className="flex items-center gap-2">
             <Ticket className="w-5 h-5" />
-            <span className="font-heading font-bold text-xl tracking-widest">TICKETAZUL</span>
+            <span className="font-heading font-bold text-xl tracking-widest whitespace-nowrap">TICKET-U</span>
           </a>
 
           {/* Menú en escritorio */}
@@ -66,11 +68,12 @@ export default function Header({ iniciales = 'MG' }: { iniciales?: string }) {
           </nav>
         </div>
 
-        {/* Buscar + carrito + avatar */}
-        <div className="flex items-center gap-2">
+        {/* Buscar + campana + carrito + avatar */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <a href={enlace('/buscar')} aria-label="Buscar eventos" className={`${CLASE_ICONO} hidden sm:flex`}>
             <Search className="w-5 h-5" />
           </a>
+          <Notificaciones notificaciones={notificaciones} />
           <a href={enlace('/carrito')} aria-label="Carrito" className={CLASE_ICONO}>
             <ShoppingCart className="w-5 h-5" />
           </a>
@@ -79,7 +82,7 @@ export default function Header({ iniciales = 'MG' }: { iniciales?: string }) {
             aria-label="Mi cuenta"
             className="w-9 h-9 ml-1 rounded-full bg-white text-ticket-primary flex items-center justify-center text-xs font-bold"
           >
-            {iniciales}
+            {iniciales || <User className="w-4 h-4" />}
           </a>
         </div>
       </div>

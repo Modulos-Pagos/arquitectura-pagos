@@ -129,7 +129,10 @@ async function main() {
     }
     for (const fk of restricciones.filter((r) => r.tipo === 'f' && r.tabla_ref)) {
       const nula = fk.columnas.some((col) => columnas.find((c) => c.tabla === fk.tabla && c.columna === col)?.nulo);
-      er.push(`    ${fk.tabla_ref} ${nula ? '|o' : '||'}--o{ ${fk.tabla} : "${fk.columnas.join(', ')}"`);
+      // FK que además es la PK completa de la tabla hija => relación 1 a 0..1 (p. ej. destinatarios_pago).
+      const pk = restricciones.find((r) => r.tipo === 'p' && r.tabla === fk.tabla);
+      const unoAUno = !!pk && pk.columnas.length === fk.columnas.length && pk.columnas.every((c) => fk.columnas.includes(c));
+      er.push(`    ${fk.tabla_ref} ${nula ? '|o' : '||'}--${unoAUno ? 'o|' : 'o{'} ${fk.tabla} : "${fk.columnas.join(', ')}"`);
     }
 
     const diagrama = [
@@ -151,8 +154,9 @@ async function main() {
       '| Columna | Módulo dueño del dato |',
       '|---|---|',
       '| `pagos.id_reserva` | Entradas/Inventario |',
-      '| `pagos.id_evento` | Panel organizador / Catálogo |',
       '| `pagos.id_usuario` | Auth |',
+      '| `pagos.id_evento` | Panel organizador / Catálogo (lo envía Entradas) |',
+      "| `pagos.nombre_codigo` | Promociones (código de descuento, lo envía Entradas) |",
       '',
       '## Relaciones',
       '',

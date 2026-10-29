@@ -3,10 +3,29 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { CardCvcElement, CardExpiryElement, CardNumberElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import type { StripeCardNumberElementOptions, StripeElementChangeEvent } from '@stripe/stripe-js';
-import { AlertCircle, CreditCard, Info, Loader2, ShieldCheck, User } from 'lucide-react';
-import { crearTransaccion, ErrorApi, esperarEstadoFinal, type Pago, type TransaccionCreada } from '@/lib/api';
+import { AlertCircle, CreditCard, Info, Loader2, LogIn, RotateCw, ShieldCheck, User } from 'lucide-react';
+import {
+  crearTransaccion,
+  definirDestinatario,
+  ErrorApi,
+  esperarEstadoFinal,
+  quitarDestinatario,
+  type Destinatario,
+  type Pago,
+  type PerfilComprador,
+  type TransaccionCreada,
+  urlLogin,
+} from '@/lib/api';
 import { calcularTotales, formatoCLP, iniciales, type Pedido } from '@/lib/pedido';
+import {
+  aCuerpoDestinatario,
+  formatoRut,
+  validarDestinatario,
+  type CampoDestinatario,
+  type SeleccionDestinatario,
+} from '@/lib/destinatario';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe';
+import ParaQuien from '@/components/checkout/ParaQuien';
 
 /** Estilo del texto dentro de los campos seguros de Stripe (iframes). Párrafo 14px, colores del estándar. */
 const ESTILO_CAMPO: StripeCardNumberElementOptions['style'] = {
@@ -49,21 +68,40 @@ export interface PagoExistente {
   client_secret: string;
 }
 
+/** Sesión del comprador validada con Auth (a través de Pagos, contrato Auth v1.3). */
+export type EstadoPerfil =
+  | { estado: 'cargando' }
+  | { estado: 'listo'; perfil: PerfilComprador }
+  /** status 401 = sin sesión o vencida (ir a /login); 503 = Auth no disponible (no se puede cobrar). */
+  | { estado: 'error'; mensaje: string; status: number };
+
 interface CheckoutFormProps {
   pedido: Pedido;
   existente?: PagoExistente | null;
+  perfil: EstadoPerfil;
+  onReintentarPerfil: () => void;
+  /** Destinatario ya guardado en el pago (al volver a un pago existente). */
+  destinatarioInicial?: Destinatario | null;
   /** Se llama cuando el pago terminó (APROBADO u otro estado final). */
   onFinalizado: (pago: Pago) => void;
 }
 
-export default function CheckoutForm({ pedido, existente = null, onFinalizado }: CheckoutFormProps) {
+export default function CheckoutForm({
+  pedido,
+  existente = null,
+  perfil,
+  onReintentarPerfil,
+  destinatarioInicial = null,
+  onFinalizado,
+}: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const totales = calcularTotales(pedido);
   const total = existente ? existente.monto : totales.total;
   const cantidadEntradas = totales.cantidadEntradas;
 
-  const [titular, setTitular] = useState('');
+  // Se prellena con el nombre de la sesión de Auth; el comprador puede corregirlo (contrato Auth v1.3).
+  const [titularEditado, setTitular] = useState<string | null>(null);
   const [errores, setErrores] = useState<Partial<Record<Campo, string>>>({});
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -90,6 +128,44 @@ export default function CheckoutForm({ pedido, existente = null, onFinalizado }:
   // En el sistema completo la reserva la crea el módulo Entradas.
   const idReserva = useRef<string | null>(null);
 
+  // ¿Para quién es la entrada? (Para mí / Para otra persona)
+  const [paraQuien, setParaQuien] = useState<SeleccionDestinatario>(
+    destinatarioInicial
+      ? {
+          para: 'otra',
+          nombre: destinatarioInicial.nombre,
+          email: destinatarioInicial.email,
+          rut: formatoRut(destinatarioInicial.rut),
+        }
+      : { para: 'mi' },
+  );
+  const [erroresDestinatario, setErroresDestinatario] = useState<Partial<Record<CampoDestinatario, string>>>({});
+  // Lo que ya está guardado en el backend, para no repetir PUT/DELETE en cada reintento.
+  const destinatarioGuardado = useRef<string | null>(
+    destinatarioInicial ? JSON.stringify(aCuerpoDestinatario({ ...destinatarioInicial, rut: destinatarioInicial.rut ?? '' })) : null,
+  );
+  const datosPerfil = perfil.estado === 'listo' ? perfil.perfil : null;
+  const nombreComprador = datosPerfil?.nombre_completo ?? '';
+  const titular = titularEditado ?? nombreComprador.toUpperCase();
+  // Fail-secure: sin sesión validada por Auth no se puede cobrar.
+  const sinSesion = perfil.estado !== 'listo';
+
+  /** Deja el destinatario del pago igual a lo elegido en pantalla (antes de cobrar). */
+  async function sincronizarDestinatario(idPago: string) {
+    if (paraQuien.para === 'otra') {
+      const cuerpo = aCuerpoDestinatario(paraQuien);
+      const clave = JSON.stringify(cuerpo);
+      if (clave === destinatarioGuardado.current) return;
+      setEtapa('Guardando los datos de quien recibe la entrada...');
+      await definirDestinatario(idPago, cuerpo);
+      destinatarioGuardado.current = clave;
+    } else if (destinatarioGuardado.current !== null) {
+      setEtapa('Actualizando el destinatario...');
+      await quitarDestinatario(idPago);
+      destinatarioGuardado.current = null;
+    }
+  }
+
   const sinStripe = !STRIPE_PUBLISHABLE_KEY;
 
   /** Stripe informa en cada cambio si el campo está completo o tiene un error. */
@@ -112,7 +188,12 @@ export default function CheckoutForm({ pedido, existente = null, onFinalizado }:
     });
     nuevos.titular = titular.trim().length < 3 ? MENSAJE_VACIO.titular : undefined;
     setErrores(nuevos);
-    if (Object.values(nuevos).some(Boolean)) return;
+    const nuevosDestinatario = paraQuien.para === 'otra' ? validarDestinatario(paraQuien) : {};
+    if (paraQuien.para === 'otra' && datosPerfil && paraQuien.email.trim().toLowerCase() === datosPerfil.correo_electronico.toLowerCase()) {
+      nuevosDestinatario.email = 'Ese es tu propio correo: elige «Para mí».';
+    }
+    setErroresDestinatario(nuevosDestinatario);
+    if (Object.values(nuevos).some(Boolean) || Object.values(nuevosDestinatario).some(Boolean)) return;
 
     const tarjeta = elements.getElement(CardNumberElement);
     if (!tarjeta) return;
@@ -135,7 +216,10 @@ export default function CheckoutForm({ pedido, existente = null, onFinalizado }:
       if (trx.estado_pago === 'PENDIENTE') {
         if (!trx.client_secret) throw new ErrorApi('El servicio de pagos no entregó el client_secret.', 500);
 
-        // 2. Confirmar la tarjeta directamente con Stripe (los datos nunca pasan por nuestro backend)
+        // 2a. Guardar para quién es la entrada (Entradas la emite a su nombre con el evento pago.realizado)
+        await sincronizarDestinatario(trx.id_pago);
+
+        // 2b. Confirmar la tarjeta directamente con Stripe (los datos nunca pasan por nuestro backend)
         setEtapa('Procesando la tarjeta...');
         const resultado = await stripe.confirmCardPayment(trx.client_secret, {
           payment_method: { card: tarjeta, billing_details: { name: titular.trim() } },
@@ -179,17 +263,63 @@ export default function CheckoutForm({ pedido, existente = null, onFinalizado }:
           <h2 className="font-heading font-semibold text-base text-ticket-primary">Información de contacto</h2>
         </div>
         <div className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-ticket-primary text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">
-              {iniciales(pedido.comprador.nombre)}
+          {perfil.estado === 'cargando' && (
+            <div className="flex items-center gap-2 text-sm text-ticket-secondary">
+              <Loader2 className="w-4 h-4 animate-spin" /> Cargando tus datos...
             </div>
-            <div>
-              <p className="font-semibold text-ticket-primary text-sm">{pedido.comprador.nombre}</p>
-              <p className="text-xs text-ticket-secondary">RUT {pedido.comprador.rut}</p>
+          )}
+          {perfil.estado === 'listo' && (
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-ticket-primary text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">
+                {iniciales(nombreComprador || perfil.perfil.correo_electronico)}
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-ticket-primary text-sm">{nombreComprador || 'Comprador'}</p>
+                <p className="text-xs text-ticket-secondary break-all">{perfil.perfil.correo_electronico}</p>
+                {perfil.perfil.rut && <p className="text-xs text-ticket-secondary">RUT {perfil.perfil.rut}</p>}
+              </div>
             </div>
-          </div>
+          )}
+          {perfil.estado === 'error' && perfil.status === 401 && (
+            <div role="alert" className="flex flex-col sm:flex-row sm:items-center gap-3 text-sm text-ticket-peligro">
+              <span className="flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                {perfil.mensaje}
+              </span>
+              <a
+                href={urlLogin()}
+                className="h-8 px-3 shrink-0 bg-ticket-primary text-white rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-ticket-hover"
+              >
+                <LogIn className="w-3.5 h-3.5" /> Iniciar sesión
+              </a>
+            </div>
+          )}
+          {perfil.estado === 'error' && perfil.status !== 401 && (
+            <div role="alert" className="flex flex-col sm:flex-row sm:items-center gap-3 text-sm text-ticket-secondary">
+              <span className="flex items-start gap-2">
+                <Info className="w-5 h-5 shrink-0 text-ticket-info" />
+                No pudimos validar tu sesión ({perfil.mensaje}). Por seguridad no se puede pagar hasta que se valide.
+              </span>
+              <button
+                type="button"
+                onClick={onReintentarPerfil}
+                className="h-8 px-3 shrink-0 border border-ticket-border rounded-lg text-xs font-semibold text-ticket-primary flex items-center gap-1 hover:bg-ticket-banner"
+              >
+                <RotateCw className="w-3.5 h-3.5" /> Reintentar
+              </button>
+            </div>
+          )}
         </div>
       </section>
+
+      <ParaQuien
+        valor={paraQuien}
+        onChange={setParaQuien}
+        errores={erroresDestinatario}
+        onLimpiarError={(campo) => setErroresDestinatario((prev) => ({ ...prev, [campo]: undefined }))}
+        perfil={datosPerfil}
+        deshabilitado={enviando}
+      />
 
       {sinStripe && (
         <div role="status" className="flex items-start gap-2 rounded-xl border border-ticket-border bg-ticket-info-bg p-4 text-sm text-ticket-info">
@@ -293,7 +423,7 @@ export default function CheckoutForm({ pedido, existente = null, onFinalizado }:
       {/* Botón principal (fila 16 y 34): alto 40px, radio 8px, hover 10% más oscuro, disabled 40% */}
       <button
         type="submit"
-        disabled={!stripe || enviando || sinStripe}
+        disabled={!stripe || enviando || sinStripe || sinSesion}
         className="w-full h-10 bg-ticket-primary text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 hover:bg-ticket-hover disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-ticket-primary"
       >
         {enviando ? (

@@ -63,10 +63,18 @@ after(async () => {
 });
 
 describe('Operación', () => {
-  it('GET /health informa BD, pasarela y modo de Entradas', async () => {
+  it('GET /health informa BD, pasarela y modos de Entradas, Auth y broker', async () => {
     const r = await llamar(app.url, 'GET', '/health');
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body, { estado: 'ok', servicio: 'microservicio-pagos', base_datos: 'ok', pasarela: 'mock', entradas: 'mock' });
+    assert.deepEqual(r.body, {
+      estado: 'ok',
+      servicio: 'microservicio-pagos',
+      base_datos: 'ok',
+      pasarela: 'mock',
+      entradas: 'mock',
+      auth: 'validar-sesion',
+      broker: 'mock',
+    });
   });
 
   it('publica el Swagger propio y el de servicios consumidos', async () => {
@@ -74,7 +82,7 @@ describe('Operación', () => {
     assert.equal(propio.status, 200);
     assert.ok(propio.body.paths['/api/v1/pagos/transacciones']);
     const consumidos = await llamar(app.url, 'GET', '/api-docs/consumidos.json');
-    assert.ok(consumidos.body.paths['/api/v1/entradas/reservas/{id_reserva}']);
+    assert.ok(consumidos.body.paths['/api/entradas/reservas/{id_reserva}']);
     const ui = await fetch(`${app.url}/api-docs/`);
     assert.equal(ui.status, 200);
   });
@@ -256,11 +264,11 @@ describe('GET /{id_pago} — polling de estado (HU 1.4, HU 1.6)', () => {
     assert.equal(r.body.monto, 15000);
   });
 
-  it('otro comprador recibe 403; un servicio (rol SERVICIO) sí puede consultar', async () => {
+  it('otro usuario recibe 403; un usuario staff sí puede consultar', async () => {
     const { id_pago } = await crearPago();
     const otro = await llamar(app.url, 'GET', `/api/v1/pagos/${id_pago}`, { token: token(OTRO) });
     assert.equal(otro.status, 403);
-    const servicio = await llamar(app.url, 'GET', `/api/v1/pagos/${id_pago}`, { token: token('svc-entradas', 'SERVICIO') });
+    const servicio = await llamar(app.url, 'GET', `/api/v1/pagos/${id_pago}`, { token: token('svc-entradas', 'staff') });
     assert.equal(servicio.status, 200);
   });
 
@@ -339,7 +347,7 @@ describe('POST /{id_pago}/reembolso — anular o reembolsar (HU 3.1, HU 3.3)', (
   it('un pago PENDIENTE queda ANULADO (no se cobra)', async () => {
     const { id_pago } = await crearPago();
     const r = await llamar(app.url, 'POST', `/api/v1/pagos/${id_pago}/reembolso`, {
-      token: token('svc-entradas', 'SERVICIO'),
+      token: token('svc-entradas', 'staff'),
       body: { motivo: 'Hold de la reserva vencido' },
     });
     assert.equal(r.status, 200);
@@ -352,7 +360,7 @@ describe('POST /{id_pago}/reembolso — anular o reembolsar (HU 3.1, HU 3.3)', (
     const { id_pago } = await crearPago();
     await aprobar(id_pago);
     const r = await llamar(app.url, 'POST', `/api/v1/pagos/${id_pago}/reembolso`, {
-      token: token('svc-entradas', 'SERVICIO'),
+      token: token('svc-entradas', 'staff'),
       body: { motivo: 'El usuario pagó después de que venció la reserva' },
     });
     assert.equal(r.status, 200);
@@ -367,7 +375,7 @@ describe('POST /{id_pago}/reembolso — anular o reembolsar (HU 3.1, HU 3.3)', (
     const { id_pago } = await crearPago();
     await aprobar(id_pago);
     const cuerpo = { motivo: 'Reserva liberada' };
-    const t = token('svc-entradas', 'SERVICIO');
+    const t = token('svc-entradas', 'staff');
     await llamar(app.url, 'POST', `/api/v1/pagos/${id_pago}/reembolso`, { token: t, body: cuerpo });
     const r = await llamar(app.url, 'POST', `/api/v1/pagos/${id_pago}/reembolso`, { token: t, body: cuerpo });
     assert.equal(r.status, 200);
@@ -379,7 +387,7 @@ describe('POST /{id_pago}/reembolso — anular o reembolsar (HU 3.1, HU 3.3)', (
     const { id_pago } = await crearPago();
     (app.deps.pasarela as MockPasarela).simularEstado(await sesionDe(id_pago), 'PAGADA');
     const r = await llamar(app.url, 'POST', `/api/v1/pagos/${id_pago}/reembolso`, {
-      token: token('svc-entradas', 'SERVICIO'),
+      token: token('svc-entradas', 'staff'),
       body: { motivo: 'Hold vencido' },
     });
     assert.equal(r.body.accion, 'REEMBOLSADO');
@@ -426,9 +434,9 @@ describe('GET /api/v1/pagos — listado para Promociones e historial del usuario
     aprobadoA = a.id_pago;
   });
 
-  it('Promociones (rol SERVICIO) obtiene los id_pago APROBADOS de un usuario', async () => {
+  it('un usuario staff obtiene los id_pago APROBADOS de un usuario (listado para Promociones)', async () => {
     const r = await llamar(app.url, 'GET', `/api/v1/pagos?id_usuario=${COMPRADOR_A}&estado=APROBADO`, {
-      token: token('svc-promociones', 'SERVICIO'),
+      token: token('svc-promociones', 'staff'),
     });
     assert.equal(r.status, 200);
     assert.deepEqual(
@@ -449,7 +457,7 @@ describe('GET /api/v1/pagos — listado para Promociones e historial del usuario
 
   it('pagina los resultados y valida los filtros', async () => {
     const r = await llamar(app.url, 'GET', `/api/v1/pagos?id_usuario=${COMPRADOR_A}&limite=1&pagina=2`, {
-      token: token('svc-promociones', 'SERVICIO'),
+      token: token('svc-promociones', 'staff'),
     });
     assert.equal(r.body.datos.length, 1);
     assert.deepEqual(r.body.paginacion, { pagina: 2, limite: 1, total: 2, total_paginas: 2 });
@@ -458,18 +466,18 @@ describe('GET /api/v1/pagos — listado para Promociones e historial del usuario
   });
 });
 
-describe('DELETE /{id_pago} — eliminar un pago de la BD (solo ADMIN)', () => {
-  const admin = () => token('usr-admin', 'ADMIN');
+describe('DELETE /{id_pago} — eliminar un pago de la BD (solo staff)', () => {
+  const admin = () => token('usr-admin', 'staff');
 
   async function anular(idPago: string) {
     const r = await llamar(app.url, 'POST', `/api/v1/pagos/${idPago}/reembolso`, {
-      token: token('svc-entradas', 'SERVICIO'),
+      token: token('svc-entradas', 'staff'),
       body: { motivo: 'Reserva liberada por Entradas' },
     });
     assert.equal(r.body.estado_pago, 'ANULADO');
   }
 
-  it('ADMIN elimina un pago ANULADO y deja de existir en la BD (404 al consultarlo)', async () => {
+  it('staff elimina un pago ANULADO y deja de existir en la BD (404 al consultarlo)', async () => {
     const { id_pago } = await crearPago();
     await anular(id_pago);
     const r = await llamar(app.url, 'DELETE', `/api/v1/pagos/${id_pago}`, { token: admin() });
@@ -497,7 +505,7 @@ describe('DELETE /{id_pago} — eliminar un pago de la BD (solo ADMIN)', () => {
     const reembolsado = await crearPago();
     await aprobar(reembolsado.id_pago);
     await llamar(app.url, 'POST', `/api/v1/pagos/${reembolsado.id_pago}/reembolso`, {
-      token: token('svc-entradas', 'SERVICIO'),
+      token: token('svc-entradas', 'staff'),
       body: { motivo: 'Reembolso de prueba' },
     });
     for (const { id_pago } of [pendiente, aprobado, reembolsado]) {
@@ -508,12 +516,12 @@ describe('DELETE /{id_pago} — eliminar un pago de la BD (solo ADMIN)', () => {
     }
   });
 
-  it('solo ADMIN: el dueño y el rol SERVICIO reciben 403; sin token 401; id inexistente 404', async () => {
+  it('solo staff: el dueño y un organizador reciben 403; sin sesión 401; id inexistente 404', async () => {
     const { id_pago } = await crearPago();
     await anular(id_pago);
     const dueno = await llamar(app.url, 'DELETE', `/api/v1/pagos/${id_pago}`, { token: token(COMPRADOR) });
     assert.equal(dueno.status, 403);
-    const servicio = await llamar(app.url, 'DELETE', `/api/v1/pagos/${id_pago}`, { token: token('svc', 'SERVICIO') });
+    const servicio = await llamar(app.url, 'DELETE', `/api/v1/pagos/${id_pago}`, { token: token('org-1', 'organizador') });
     assert.equal(servicio.status, 403);
     const sinToken = await llamar(app.url, 'DELETE', `/api/v1/pagos/${id_pago}`);
     assert.equal(sinToken.status, 401);

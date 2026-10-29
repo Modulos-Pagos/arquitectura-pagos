@@ -1,6 +1,7 @@
 /**
  * Pedido de ejemplo. En el sistema completo estos datos llegan desde el módulo
- * Entradas (reserva: evento, ítems y total) y desde Auth (comprador).
+ * Entradas (reserva: evento, ítems y total). Los datos del comprador ya no están
+ * aquí: se piden a Auth a través de Pagos (GET /api/pagos/comprador/perfil).
  */
 
 export interface ItemPedido {
@@ -12,14 +13,12 @@ export interface ItemPedido {
 
 export interface Pedido {
   idEvento: string;
-  comprador: { nombre: string; rut: string };
   items: ItemPedido[];
   cargoServicioPct: number;
 }
 
 export const PEDIDO_DEMO: Pedido = {
   idEvento: 'evt-2026-festival-jazz',
-  comprador: { nombre: 'María González', rut: '12.345.678-9' },
   items: [
     { evento: 'Festival Internacional de Jazz', detalle: 'Zona VIP', cantidad: 2, precioUnitario: 1850 },
     { evento: 'Teatro: El Lago de los Cisnes', detalle: 'Orquesta Central', cantidad: 1, precioUnitario: 980 },

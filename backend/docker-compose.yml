@@ -1,10 +1,16 @@
-# Levanta el microservicio de Pagos + su propia base de datos PostgreSQL
-# (patrón Database per Service). El esquema se crea solo desde db/schema.sql.
+# Microservicio de Pagos + su propia base de datos PostgreSQL (Database per Service),
+# conectado a la red común de la plataforma TicketU (API Gateway + RabbitMQ).
 #
-#   cp .env.example .env
-#   docker compose up --build
+# Sigue la guía del Platform Team (repo FWizav/backendticketU):
+#   1. docker network create plataforma-eventos-net   (una vez por máquina; si ya existe, no pasa nada)
+#   2. event-broker/ y api-gateway/ del Platform Team levantados
+#   3. aquí: cp .env.example .env  (completar)  y  docker compose up -d --build
 #
-# Swagger: http://localhost:3000/api-docs
+# Directo (para Postman/Swagger): http://localhost:3004/api-docs   (el 3000 del host queda libre para el front común)
+# Por el Gateway:                 http://localhost:8080/api/pagos/health
+# En el .env del Gateway:         PAGOS_SERVICE_URL=http://pagos-service:3000
+# CORS del navegador: lo resuelve el Gateway. Agregar el front de Pagos a su CORS_ORIGINS
+# (por ejemplo CORS_ORIGINS=http://localhost:3000,http://localhost:5173).
 services:
   pagos-db:
     image: postgres:16-alpine
@@ -14,7 +20,8 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: pagos_db
     ports:
-      - "5432:5432"
+      # 5433 en el host para no chocar con otro PostgreSQL (de otro módulo o local)
+      - "${PAGOS_DB_PUERTO_HOST:-5433}:5432"
     volumes:
       - pagos-db-data:/var/lib/postgresql/data
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
@@ -24,32 +31,45 @@ services:
       timeout: 3s
       retries: 10
     networks:
-      - titec-net
+      - pagos-interna
 
   pagos-service:
     build: .
     container_name: pagos-service
     env_file: .env
     environment:
+      # Base de datos propia del contenedor. Para usar Supabase, borrar estas dos líneas
+      # (se toma DATABASE_URL y DATABASE_SSL=true del .env) y quitar depends_on.
       DATABASE_URL: postgres://postgres:postgres@pagos-db:5432/pagos_db
       DATABASE_SSL: "false"
       PORT: "3000"
+      PREFIJO_GATEWAY: /api/pagos
+      # Nombres de servicio dentro de la red de la plataforma (nunca localhost entre contenedores)
+      # Valores del repo del Platform Team (.env.example del Gateway y del event-broker)
+      BROKER_URL: ${BROKER_URL_DOCKER:-amqp://ticketu:ticketu_dev@ticketu-rabbitmq:5672/ticketu}
+      ENTRADAS_BASE_URL: ${ENTRADAS_URL_DOCKER:-http://entradas-service:3000}
+      # Auth escucha en el 10000 (su Dockerfile, su main.ts y el ejemplo de su contrato general v1.1)
+      AUTH_BASE_URL: ${AUTH_URL_DOCKER:-http://auth-service:10000}
+      # Con la plataforma: Auth real (contrato v1.3, siempre por HTTP) y CORS resuelto por el Gateway.
+      CORS_ORIGIN: ${CORS_ORIGIN_DOCKER:-none}
     ports:
-      - "3000:3000"
+      - "${PAGOS_PUERTO_HOST:-3004}:3000"
     depends_on:
       pagos-db:
         condition: service_healthy
     networks:
-      titec-net:
+      pagos-interna:
+      plataforma-eventos-net:
         aliases:
           - pagos-service
 
 volumes:
   pagos-db-data:
 
-# Para integrarse con los otros equipos en una red compartida (como el esqueleto
-# skeletotitec), crear la red una vez con `docker network create titec-net`
-# y cambiar abajo a `external: true`.
 networks:
-  titec-net:
-    name: titec-net
+  # Solo Pagos y su base de datos
+  pagos-interna:
+    name: pagos-interna
+  # Red común de la plataforma (la crea el Platform Team)
+  plataforma-eventos-net:
+    external: true

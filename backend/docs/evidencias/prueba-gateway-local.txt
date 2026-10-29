@@ -1,0 +1,43 @@
+Prueba local con el API Gateway del Platform Team (repo FWizav/backendticketU, carpeta api-gateway) — 2026-10-28 22:27 (hora de Chile)
+
+Montaje (sin Docker):
+  - API Gateway del Platform Team en :8080 (código sin modificar). .env: PAGOS_SERVICE_URL=http://localhost:3004,
+    ENTRADAS_SERVICE_URL=http://localhost:3003, AUTH_SERVICE_URL=http://localhost:3001, CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+  - Pagos en :3004 con ENTRADAS_MODO=http, ENTRADAS_BASE_URL=http://localhost:8080 (verifica la reserva pasando por el Gateway)
+  - Auth simulado en :3001 (npm run auth:simulado) y un Entradas SIMULADO en :3003 que responde GET /api/entradas/reservas/{id}
+    (Auth y Entradas reales no estaban disponibles; Pagos los llama por HTTP igual que a los reales)
+
+1) GET http://localhost:8080/api/pagos/health
+{"estado":"ok","servicio":"microservicio-pagos","base_datos":"ok","pasarela":"mock","entradas":"http","auth":"validar-sesion","broker":"mock"}
+
+2) POST http://localhost:8080/api/pagos/transacciones  (Cookie: jwt=<sesión>, Origin: http://localhost:5173)  {id_reserva: res-int-1, total: 7500, cantidad_entradas: 1}
+   -> respuesta de una reserva nueva:
+{"id_pago":"81845472-7e63-44b7-a1de-0974262b81fb","id_reserva":"res-int-1","estado_pago":"PENDIENTE","fecha_creacion":"2026-10-29T01:27:31.058Z","metodo":"formulario","url_checkout":"http://localhost:5173/?id_pago=81845472-7e63-44b7-a1de-0974262b81fb","client_secret":"(omitido)","fecha_expiracion":null} [200] (200 = reintento idempotente: el pago ya se había creado con 201)
+
+3) POST /api/pagos/transacciones con una reserva que Entradas no conoce -> 422
+{"error":"RESERVA_NO_ENCONTRADA","mensaje":"Entradas no reconoce la reserva res-no-existe"} [422]
+
+4) GET /api/pagos/comprador/perfil sin cookie -> 401 (Pagos igual consulta a Auth)
+{"error":"NO_AUTENTICADO","mensaje":"Sesión ausente, inválida, expirada o revocada"} [401]
+
+5) La ruta anterior /api/v1/entradas/... NO pasa por el Gateway -> 404
+{"error":"ROUTE_NOT_FOUND","message":"Ruta no registrada en el API Gateway.","path":"/api/v1/entradas/reservas/res-int-1","requestId":"631040ee-6d9c-4725-b36c-f60df8831462"} [404]
+
+Log del Gateway:
+[gateway] method=GET path=/api/pagos/health module=pagos
+[gateway] method=POST path=/api/pagos/transacciones module=pagos
+[gateway] method=GET path=/api/entradas/reservas/res-int-1 module=entradas
+[gateway] method=POST path=/api/pagos/transacciones module=pagos
+[gateway] method=POST path=/api/pagos/transacciones module=pagos
+[gateway] method=GET path=/api/entradas/reservas/res-no-existe module=entradas
+[gateway] method=GET path=/api/pagos/comprador/perfil module=pagos
+[gateway] method=GET path=/api/pagos/health module=pagos
+[gateway] method=POST path=/api/pagos/transacciones module=pagos
+[gateway] method=POST path=/api/pagos/transacciones module=pagos
+[gateway] method=GET path=/api/entradas/reservas/res-no-existe module=entradas
+[gateway] method=GET path=/api/pagos/comprador/perfil module=pagos
+
+Log del Entradas simulado (la cookie del comprador llega reenviada por Pagos):
+[entradas-falso] GET /api/entradas/reservas/res-int-1 cookie=sí
+[entradas-falso] GET /api/entradas/reservas/res-no-existe cookie=sí
+[entradas-falso] GET /api/entradas/reservas/res-no-existe cookie=sí

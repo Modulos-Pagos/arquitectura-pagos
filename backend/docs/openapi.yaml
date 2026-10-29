@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Microservicio de Pagos — TicketU (TITEC 2026-2)
-  version: 2.3.0
+  version: 2.8.0
   description: |
     Servicios **propios** del módulo de Pagos (ítem BE1) y servicios que **otros módulos consumen** (ítem BE3).
 
@@ -11,46 +11,99 @@ info:
     | `id_pago` | Entradas | `POST /transacciones`, `GET /{id_pago}` |
     | `estado_pago` | Entradas | `POST /transacciones`, `GET /{id_pago}` |
     | `fecha_creacion` (de la compra) | Entradas | `POST /transacciones`, `GET /{id_pago}` |
-    | `id_pago` | Promociones | `GET /api/v1/pagos` (filtros por usuario/reserva/estado) |
+    | `id_pago` | Promociones | Evento `pago.completado` en RabbitMQ (contrato Promociones ↔ Pagos v1.0) y `GET /api/v1/pagos` (filtros por usuario/reserva/estado) |
 
     ### Dato que recibe
     Orden de compra (`cantidad_entradas`, `total`) desde **Entradas**: llega en el body de `POST /transacciones`
-    (`id_evento` y `cantidad_entradas` se usan para validar la orden y describir el cobro; no se almacenan)
+    (`cantidad_entradas` se usa para validar la orden; `id_evento` y el código de descuento `nombre_codigo` se guardan
+    solo como referencias, para reenviarlos a Promociones en `pago.completado`)
     y además se verifica invocando el servicio de Entradas (ver `/api-docs/consumidos`, ítem BE2).
 
-    ### Flujo acordado con Entradas (contrato v2.1, MVP con polling)
+    ### Plataforma TicketU: API Gateway
+    El Gateway enruta el prefijo público **`/api/pagos`** a este servicio y **no reescribe el path**,
+    por eso cada ruta `/api/v1/pagos/...` de este documento responde también en `/api/pagos/...`
+    (por ejemplo `POST /api/pagos/transacciones`, `GET /api/pagos/health`).
+    Variable del Gateway: `PAGOS_SERVICE_URL=http://pagos-service:3000` (red `plataforma-eventos-net`).
+
+    ### Flujo acordado con Entradas (contrato Entradas ↔ Pagos v1.0)
     1. Entradas llama `POST /transacciones` → recibe `id_pago`, `estado_pago = PENDIENTE` y `url_checkout` en < 2000 ms.
-    2. El usuario paga en la `url_checkout` (Stripe Checkout).
-    3. Stripe avisa por webhook; Entradas consulta `GET /{id_pago}` cada pocos segundos hasta `APROBADO` o `RECHAZADO`.
+    2. El comprador paga en la `url_checkout`: por defecto el formulario del front de Pagos (Stripe Elements, `metodo = formulario`);
+       con `metodo = checkout`, la página alojada por Stripe.
+    3. Stripe avisa por webhook y Pagos **publica el evento `pago.realizado` (o `pago.rechazado`) en RabbitMQ**.
+       `GET /{id_pago}` (< 1500 ms) queda como respaldo para consultar el estado.
     4. Si la reserva de Entradas expiró (hold vencido), Entradas llama `POST /{id_pago}/reembolso`.
 
-    Evolución planificada: publicar el evento `pago.aprobado` en el broker (RabbitMQ) en vez de polling.
+    ### Eventos publicados en el broker (RabbitMQ)
+    Exchange `ticketu.events` (topic, durable). Routing key = campo `tipo`. Mensajes JSON persistentes, `messageId = id_mensaje`.
+    | Routing key | Cuándo | Consumidores previstos |
+    |---|---|---|
+    | `pago.realizado` | PENDIENTE → APROBADO | Entradas (emite las entradas), Notificaciones |
+    | `pago.rechazado` | PENDIENTE → RECHAZADO (sesión expirada o cobro cancelado) | Entradas (libera la reserva) |
+    | `pago.anulado` | PENDIENTE → ANULADO (Entradas anuló antes del pago) | Entradas |
+    | `pago.reembolsado` | APROBADO → REEMBOLSADO | Entradas, Notificaciones, Promociones |
+    | `pago.completado` | PENDIENTE → APROBADO | **Promociones** (descuenta un uso del código; contrato Promociones ↔ Pagos v1.0) |
+
+    Payload `pago.*` (versión 1): `tipo`, `version`, `id_mensaje`, `fecha_evento`, `id_pago`, `id_reserva`, `id_usuario` (comprador),
+    `id_evento`, `nombre_codigo`, `estado_pago`, `monto`, `moneda`, `motivo` (o null) y `destinatario` (`{ nombre, email, rut }`
+    si la entrada es para otra persona; null si es para el comprador).
+
+    Payload `pago.completado` (versión 1): `tipo`, `version`, `id_mensaje`, `fecha_evento`, `id_pago`, `id_usuario`, `id_evento`
+    y `nombre_codigo` (null si no se usó código: Promociones ignora el evento). Ejemplo:
+    `{ "tipo": "pago.completado", "id_pago": "3f2b8c1e-...", "id_usuario": "usr-999", "id_evento": "evt-123", "nombre_codigo": "DESC50", ... }`.
+    Todos los mensajes llevan además el sobre del ejemplo del Platform Team: `eventId`, `eventName`, `occurredAt`,
+    `source: "pagos-service"` y `data` (copia de los campos del contrato).
+    La routing key se configura con `BROKER_CLAVE_PROMOCIONES` (por defecto `pago.completado`). Los nombres siguen la convención del Platform Team
+    (`<recurso>.<hecho-en-pasado>`, exchange `ticketu.events` en `ticketu-rabbitmq`, vhost `ticketu`).
+
+    ### Sesión y datos del comprador (contrato Auth ↔ Pagos v1.3)
+    En **cada petición protegida** (también si no viene cookie) Pagos llama a Auth `GET /internal/validar-sesion` (red interna),
+    reenviando el header `Cookie` tal como llegó y su clave `x-api-key`. Pagos no valida el JWT por su cuenta: el `id_usuario`, el rol
+    (`usuario`, `organizador` o `staff`) y el perfil (`nombre_completo`, `rut`, `correo_electronico`) vienen de esa respuesta.
+    `GET /comprador/perfil` devuelve ese perfil para prellenar la pantalla de pago (sin llamadas extra a Auth).
+    Pagos no guarda RUT, nombre ni correo del comprador; solo guarda los datos del **destinatario** cuando el comprador
+    elige «Comprar para otra persona» (`PUT /{id_pago}/destinatario`), escritos a mano (Auth no expone búsqueda de usuarios).
+
+    | Respuesta de Auth | Pagos responde |
+    |---|---|
+    | 200 `valido: true` | Sigue con la operación |
+    | 401 (sin cookie `jwt`, token inválido, vencido o revocado) | 401 `NO_AUTENTICADO` (el front redirige a /login) |
+    | 403 (x-api-key inválida) | 403 `SERVICIO_NO_AUTORIZADO` |
+    | 500 | 500 `ERROR_INTERNO` |
+    | Timeout (1000 ms), conexión rechazada u otro 5xx | 503 `AUTH_NO_DISPONIBLE` (fail-secure: no se crea ni cambia ningún pago) |
+
+    Swagger UI no puede enviar cookies desde el navegador: para probar los endpoints protegidos usar Postman
+    (header `Cookie: jwt=...`) o el front de Pagos.
 
     ### Estados del pago
     `PENDIENTE` → `APROBADO` | `RECHAZADO` | `ANULADO`; `APROBADO` → `REEMBOLSADO`.
     `ANULADO` = se canceló antes de cobrar. `REEMBOLSADO` = se cobró y se devolvió el dinero.
 
     ### Política de autorización
-    Todos los endpoints (excepto `/health` y el webhook) exigen `Authorization: Bearer <JWT emitido por Auth>`.
-    En `POST /transacciones` también se acepta el mismo JWT en el campo `token_sesion` del body (contrato de Entradas v1.0).
-    El `id_usuario` se toma del token (claim `id_usuario` o `sub`), nunca del body.
+    Todos los endpoints (excepto `/health` y el webhook) exigen la cookie de sesión `jwt` emitida por Auth, validada con Auth
+    en cada petición. No se aceptan `Authorization: Bearer` ni `token_sesion`. Entradas reenvía el header `Cookie` del comprador.
+    El `id_usuario` y el rol vienen de Auth, nunca del body, la URL ni el JWT.
 
-    | Operación | Comprador (dueño) | Otro usuario | Rol `SERVICIO` / `ADMIN` |
+    | Operación | Dueño del pago (`usuario` u `organizador`) | Otro usuario | Rol `staff` |
     |---|---|---|---|
     | Crear transacción | Sí (queda a su nombre) | No aplica | Sí |
-    | Consultar pago | Sí, solo los suyos | No (403) | Sí |
-    | Listar pagos | Sí, solo los suyos | No (403) | Sí, todos (Promociones) |
-    | Anular / reembolsar | Sí, solo los suyos | No (403) | Sí (Entradas) |
-    | Eliminar pago | No (403) | No (403) | Solo `ADMIN` (SERVICIO → 403) |
-    | Webhook Stripe | — sin JWT: se valida la firma `Stripe-Signature` | | |
+    | Consultar pago | Sí, solo los suyos | No (403) | Sí, cualquiera |
+    | Listar pagos | Sí, solo los suyos | No (403) | Sí, todos |
+    | Anular / reembolsar | Sí, solo los suyos | No (403) | Sí, cualquiera |
+    | Eliminar pago (RECHAZADO/ANULADO) | No (403) | No (403) | Sí |
+    | Perfil del comprador | Sí (su sesión) | — | — |
+    | Pagar (datos de checkout, `client_secret`) | Sí, solo los suyos | No (403) | No (403) |
+    | Definir / quitar destinatario | Sí, solo en sus pagos PENDIENTES | No (403) | No (403) |
+    | Webhook Stripe | — sin sesión: se valida la firma `Stripe-Signature` | | |
 
     ### Formato de error (todas las respuestas 4xx/5xx)
     `{ "error": "CODIGO", "mensaje": "texto", "detalles": [ ... ] }`
   contact:
     name: Equipo Pagos — TITEC 2026-2
 servers:
-  - url: http://localhost:3000
-    description: Local
+  - url: http://localhost:3004
+    description: Local (directo al servicio)
+  - url: http://localhost:8080
+    description: API Gateway de la plataforma — usar el prefijo /api/pagos en lugar de /api/v1/pagos
 tags:
   - name: Entradas (consumidor)
     description: Servicios que usa el módulo Entradas/Inventario (BE3)
@@ -61,11 +114,11 @@ tags:
   - name: Stripe (webhook)
     description: Aviso asíncrono de la pasarela externa
   - name: Administración
-    description: Operaciones de mantenimiento de la BD, solo rol ADMIN
+    description: Operaciones de mantenimiento de la BD, solo rol staff
   - name: Operación
     description: Salud del servicio
 security:
-  - bearerAuth: []
+  - cookieAuth: []
 
 paths:
   /api/v1/pagos/transacciones:
@@ -76,7 +129,7 @@ paths:
       description: |
         **Historias:** HU 1.1 (redirección a checkout seguro), HU 1.3 (integración con pasarela).
 
-        Crea el pago en estado `PENDIENTE` y una sesión de Stripe Checkout. Responde en menos de 2000 ms.
+        Crea el pago en estado `PENDIENTE` y el cobro en Stripe: por defecto un PaymentIntent que se paga en el formulario del front de Pagos (`metodo = formulario`); con `metodo = checkout`, una sesión de Stripe Checkout. Responde en menos de 2000 ms.
 
         **Idempotencia:** si Entradas reintenta con el mismo `id_reserva` y los mismos datos, se responde **200**
         con el pago ya existente (misma `url_checkout`), sin crear un segundo cobro. Si el `id_reserva` ya existe
@@ -95,12 +148,15 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/CrearTransaccionRequest' }
             examples:
-              entradas_v1:
-                summary: Request de Entradas (contrato v1.0, token en el body)
-                value: { id_reserva: 'res-98765', total: 15000, cantidad_entradas: 2, token_sesion: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' }
+              entradas_v2_3:
+                summary: Request de Entradas (contrato v2.3; la sesión va en el header Cookie jwt=...)
+                value: { id_reserva: 'res-98765', total: 15000, cantidad_entradas: 2 }
               completo:
-                summary: Con header Authorization e id_evento
+                summary: Con id_evento
                 value: { id_reserva: 'res-98765', id_evento: 'evt-2026-fiesta-ici', total: 15000, cantidad_entradas: 2 }
+              con_codigo:
+                summary: Con código de descuento de Promociones
+                value: { id_reserva: 'res-98765', id_evento: 'evt-123', total: 7500, cantidad_entradas: 2, nombre_codigo: 'DESC50' }
       responses:
         '201':
           description: Pago creado. El usuario debe ser redirigido a `url_checkout`.
@@ -139,9 +195,11 @@ paths:
     get:
       tags: [Entradas (consumidor), Usuario / Front de Pagos]
       operationId: obtenerPago
-      summary: Consultar el estado de un pago (polling)
+      summary: Consultar el estado de un pago (respaldo del evento del broker)
       description: |
-        **Historias:** HU 1.6 (confirmación de pago a Entradas), HU 1.4 (rechazos y errores).
+        **Historias:** HU 1.6 (confirmación de pago a Entradas), HU 1.4 (rechazos y errores). SLA < 1500 ms.
+
+        Incluye `destinatario` cuando el comprador compró la entrada para otra persona.
 
         Entradas consulta este endpoint cada pocos segundos hasta obtener un estado final.
         Si el pago sigue `PENDIENTE`, el servicio consulta además a Stripe y actualiza el estado
@@ -162,7 +220,7 @@ paths:
     delete:
       tags: [Administración]
       operationId: eliminarPago
-      summary: Eliminar un pago que no movió dinero (solo ADMIN)
+      summary: Eliminar un pago que no movió dinero (solo staff)
       description: |
         Borra el registro del pago de la base de datos. Solo se permiten pagos `RECHAZADO` o `ANULADO`
         sin reembolsos (no hubo cobro). Los pagos `PENDIENTE`, `APROBADO` y `REEMBOLSADO` se conservan
@@ -196,7 +254,7 @@ paths:
       description: |
         **Historias:** HU 1.1. El front abre `url_checkout` (`/?id_pago=...`) y llama este endpoint para obtener
         el monto y el `client_secret` del PaymentIntent. Si el pago ya no está PENDIENTE, `client_secret` es `null`.
-        Solo el comprador dueño del pago o un rol SERVICIO/ADMIN.
+        Solo el comprador dueño del pago (staff consulta y anula pagos ajenos, pero no los paga).
       parameters:
         - $ref: '#/components/parameters/IdPago'
       responses:
@@ -225,7 +283,7 @@ paths:
         **Historias:** HU 3.1 (reembolso total), HU 3.3 (reversión cuando Entradas libera la reserva).
 
         Acordado con Entradas: si su tiempo de reserva (hold) venció y el usuario pagó tarde, Entradas llama
-        este endpoint con un token de rol `SERVICIO`.
+        este endpoint reenviando la cookie de sesión del comprador (contrato v2.3; un usuario staff también puede).
         - `PENDIENTE` → se expira la sesión de Stripe y el pago queda `ANULADO` (no se cobra).
         - `APROBADO` → se crea un reembolso total en Stripe y el pago queda `REEMBOLSADO`.
         - `ANULADO`/`REEMBOLSADO` → **200** con `ya_procesado: true` (reintento idempotente).
@@ -267,7 +325,7 @@ paths:
         **Integración:** entrega `id_pago` al módulo **Promociones** (tabla de dependencias), por ejemplo para
         asociar el uso de un código de descuento a un pago aprobado de un usuario.
 
-        - Con rol `SERVICIO`/`ADMIN` se pueden consultar pagos de cualquier usuario.
+        - Con rol `staff` se pueden consultar pagos de cualquier usuario.
         - Un comprador solo ve sus propios pagos (si envía otro `id_usuario` recibe 403).
       parameters:
         - { name: id_usuario, in: query, required: false, schema: { type: string, maxLength: 64 }, description: 'Filtra por comprador' }
@@ -293,7 +351,7 @@ paths:
       summary: Recibir eventos de Stripe (pago completado, expirado o fallido)
       description: |
         **Historias:** HU 1.3, HU 1.4. Endpoint llamado **por Stripe**, no por otros módulos.
-        No usa JWT: se valida la firma HMAC del header `Stripe-Signature` con `STRIPE_WEBHOOK_SECRET`.
+        No usa sesión: se valida la firma HMAC del header `Stripe-Signature` con `STRIPE_WEBHOOK_SECRET`.
 
         Eventos procesados:
         | Evento de Stripe | Efecto |
@@ -327,6 +385,85 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
         '500': { $ref: '#/components/responses/ErrorInterno' }
 
+  /api/v1/pagos/comprador/perfil:
+    get:
+      tags: [Usuario / Front de Pagos]
+      operationId: perfilComprador
+      summary: Datos del comprador para prellenar la pantalla de pago (desde la sesión de Auth)
+      description: |
+        **Historias:** HU 1.1, HU 1.5. Devuelve el perfil que Auth entregó al validar la sesión (contrato Auth ↔ Pagos v1.3),
+        sin llamadas extra. Se usa solo para mostrar y prellenar; Pagos no lo guarda. Respuesta con `Cache-Control: no-store`.
+      responses:
+        '200':
+          description: Perfil del comprador según Auth.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PerfilComprador' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/ServicioNoAutorizado' }
+        '503': { $ref: '#/components/responses/AuthNoDisponible' }
+
+  /api/v1/pagos/{id_pago}/destinatario:
+    put:
+      tags: [Usuario / Front de Pagos]
+      operationId: definirDestinatario
+      summary: La entrada es para otra persona
+      description: |
+        **Historia:** HU 1.1. Solo el comprador dueño y solo mientras el pago está `PENDIENTE`.
+        Nombre, correo y RUT se escriben a mano (Auth v1.3 no expone búsqueda de usuarios).
+        El destinatario viaja en `GET /{id_pago}` y en los eventos `pago.*` para que Entradas emita la entrada a su nombre.
+      parameters:
+        - $ref: '#/components/parameters/IdPago'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DestinatarioRequest' }
+      responses:
+        '200':
+          description: Destinatario registrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id_pago: { type: string, format: uuid }
+                  destinatario: { $ref: '#/components/schemas/Destinatario' }
+        '400': { $ref: '#/components/responses/ErrorValidacion' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/NoAutorizado' }
+        '404': { $ref: '#/components/responses/PagoNoEncontrado' }
+        '409':
+          description: El pago ya no está PENDIENTE (`PAGO_NO_EDITABLE`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/AuthNoDisponible' }
+    delete:
+      tags: [Usuario / Front de Pagos]
+      operationId: quitarDestinatario
+      summary: La entrada vuelve a ser para el comprador
+      parameters:
+        - $ref: '#/components/parameters/IdPago'
+      responses:
+        '200':
+          description: Sin destinatario.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id_pago: { type: string, format: uuid }
+                  destinatario: { type: object, nullable: true, example: null }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/NoAutorizado' }
+        '404': { $ref: '#/components/responses/PagoNoEncontrado' }
+        '409':
+          description: El pago ya no está PENDIENTE (`PAGO_NO_EDITABLE`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /health:
     get:
       tags: [Operación]
@@ -347,11 +484,13 @@ paths:
 
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: 'Token emitido por el módulo Auth (HS256). Claims usados: id_usuario (o sub) y rol.'
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: jwt
+      description: |
+        Cookie de sesión `jwt` emitida por Auth (HttpOnly, SameSite=Strict). Pagos la reenvía a Auth
+        (`GET /internal/validar-sesion` + `x-api-key`) en cada petición; no la valida por su cuenta.
     stripeSignature:
       type: apiKey
       in: header
@@ -378,7 +517,16 @@ components:
       required: [id_reserva, total, cantidad_entradas]
       properties:
         id_reserva: { type: string, maxLength: 64, description: 'Id de la reserva en Entradas (llave de idempotencia)', example: res-98765 }
-        id_evento: { type: string, maxLength: 64, description: 'Opcional. Id del evento; si no viene, se toma del servicio de Entradas cuando está disponible. No se almacena.', example: evt-2026-fiesta-ici }
+        id_evento: { type: string, maxLength: 64, description: 'Opcional. Id del evento; si no viene, se toma del servicio de Entradas cuando está disponible. Se guarda como referencia y se envía a Promociones.', example: evt-2026-fiesta-ici }
+        nombre_codigo:
+          type: string
+          maxLength: 50
+          nullable: true
+          description: |
+            Opcional (contrato Promociones ↔ Pagos v1.0). Código de descuento aplicado por Entradas. Se guarda como referencia
+            y se envía en el evento `pago.completado` para que Promociones descuente un uso. Vacío o null = sin código.
+            Si Entradas lo informa en la reserva y no viene en el body, se toma de ahí; si no coinciden → 422.
+          example: DESC50
         total: { type: integer, minimum: 1, maximum: 99999999, description: 'Monto total en CLP, sin decimales', example: 15000 }
         cantidad_entradas: { type: integer, minimum: 1, maximum: 100, example: 2 }
         metodo:
@@ -386,12 +534,6 @@ components:
           enum: [formulario, checkout]
           default: formulario
           description: '`formulario` = url_checkout lleva al front de Pagos (Stripe Elements). `checkout` = url_checkout lleva a la página de Stripe.'
-        token_sesion:
-          type: string
-          description: |
-            Opcional, compatibilidad con el contrato de Entradas v1.0. JWT emitido por Auth enviado en el body
-            en vez del header `Authorization`. Se valida igual que el header; si vienen ambos, manda el header.
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
     TransaccionCreada:
       type: object
@@ -420,6 +562,8 @@ components:
         id_pago: { type: string, format: uuid }
         id_reserva: { type: string, example: res-98765 }
         id_usuario: { type: string, example: usr-123 }
+        id_evento: { type: string, nullable: true, example: evt-123 }
+        nombre_codigo: { type: string, nullable: true, description: 'Código de descuento aplicado (Promociones)', example: DESC50 }
         estado_pago: { $ref: '#/components/schemas/EstadoPago' }
         metodo: { type: string, enum: [checkout, formulario] }
         monto: { type: integer, example: 15000 }
@@ -429,6 +573,36 @@ components:
         fecha_creacion: { type: string, format: date-time }
         fecha_actualizacion: { type: string, format: date-time }
         fecha_expiracion: { type: string, format: date-time, nullable: true }
+        destinatario:
+          allOf: [{ $ref: '#/components/schemas/Destinatario' }]
+          nullable: true
+          description: 'Solo en GET /{id_pago} y /checkout. null = la entrada es para el comprador'
+
+    PerfilComprador:
+      type: object
+      description: Perfil según Auth (validar-sesion, contrato v1.3). Auth no maneja teléfono.
+      properties:
+        id_usuario: { type: string, format: uuid, example: 3f1e2c1a-4b8d-4a2e-9c3f-7d1e2f9b2d4a }
+        nombre_completo: { type: string, example: Javier Romero }
+        rut: { type: string, description: 'Con puntos y guion, como lo entrega Auth', example: 21.234.567-8 }
+        correo_electronico: { type: string, example: javier@ejemplo.cl }
+        rol: { type: string, enum: [usuario, organizador, staff], example: usuario }
+
+    DestinatarioRequest:
+      type: object
+      required: [nombre, email]
+      properties:
+        nombre: { type: string, minLength: 2, maxLength: 120, example: Pedro Soto Fuentes }
+        email: { type: string, format: email, maxLength: 254, example: pedro.soto@alumnos.uv.cl }
+        rut: { type: string, nullable: true, description: 'Con dígito verificador; acepta puntos', example: 12.345.678-5 }
+
+    Destinatario:
+      type: object
+      properties:
+        nombre: { type: string, example: Pedro Soto Fuentes }
+        email: { type: string, example: pedro.soto@alumnos.uv.cl }
+        rut: { type: string, nullable: true, description: "Con puntos y guion (formato oficial de Auth)", example: 12.345.678-5 }
+        fecha_registro: { type: string, format: date-time }
 
     ListadoPagos:
       type: object
@@ -517,6 +691,8 @@ components:
         base_datos: { type: string, enum: [ok, error] }
         pasarela: { type: string, enum: [stripe, mock] }
         entradas: { type: string, enum: [http, mock] }
+        auth: { type: string, enum: [validar-sesion], description: 'Pagos siempre valida la sesión con Auth (GET /internal/validar-sesion).' }
+        broker: { type: string, enum: [rabbitmq, mock] }
 
     Error:
       type: object
@@ -541,7 +717,7 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
-          example: { error: NO_AUTENTICADO, mensaje: 'Se requiere un token de autorización válido' }
+          example: { error: NO_AUTENTICADO, mensaje: 'Sesión ausente, inválida, expirada o revocada' }
     NoAutorizado:
       description: El pago pertenece a otro usuario y el rol no es privilegiado (`NO_AUTORIZADO`).
       content:
@@ -560,6 +736,18 @@ components:
           schema: { $ref: '#/components/schemas/Error' }
     EntradasNoDisponible:
       description: No se pudo invocar al servicio de Entradas para validar la orden (`ENTRADAS_NO_DISPONIBLE`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ServicioNoAutorizado:
+      description: Auth rechazó la clave de servicio de Pagos (x-api-key) (`SERVICIO_NO_AUTORIZADO`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    AuthNoDisponible:
+      description: |
+        Auth no respondió a tiempo al validar la sesión (`AUTH_NO_DISPONIBLE`). Fail-secure: no se creó ni cambió
+        ningún pago; reintentar más tarde.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }

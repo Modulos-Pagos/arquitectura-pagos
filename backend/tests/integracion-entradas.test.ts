@@ -12,7 +12,7 @@ import { configPruebas, levantarApp, llamar, nuevaReserva, reiniciarBase, token,
  */
 
 const reservas = new Map<string, { id_reserva: string; id_evento: string; cantidad_entradas: number; total: number }>();
-let authorizationRecibido: string | undefined;
+let cookieRecibida: string | undefined;
 let entradasFalso: http.Server;
 let urlEntradas: string;
 let config: Config;
@@ -20,8 +20,8 @@ let app: AppDePrueba;
 
 before(async () => {
   entradasFalso = http.createServer((req, res) => {
-    authorizationRecibido = req.headers.authorization;
-    const m = req.url?.match(/^\/api\/v1\/entradas\/reservas\/([^/?]+)$/);
+    cookieRecibida = req.headers.cookie;
+    const m = req.url?.match(/^\/api\/entradas\/reservas\/([^/?]+)$/);
     if (req.method !== 'GET' || !m) {
       res.writeHead(404).end();
       return;
@@ -54,7 +54,7 @@ after(async () => {
 });
 
 describe('Invocación a Entradas/Inventario (BE2)', () => {
-  it('si la orden coincide con Entradas se crea el pago y se reenvía el token', async () => {
+  it('si la orden coincide con Entradas se crea el pago y se reenvía la cookie de sesión', async () => {
     const id = nuevaReserva();
     reservas.set(id, { id_reserva: id, id_evento: 'evt-1', cantidad_entradas: 2, total: 15000 });
     const t = token('usr-1');
@@ -63,7 +63,7 @@ describe('Invocación a Entradas/Inventario (BE2)', () => {
       body: { id_reserva: id, id_evento: 'evt-1', total: 15000, cantidad_entradas: 2 },
     });
     assert.equal(r.status, 201);
-    assert.equal(authorizationRecibido, `Bearer ${t}`);
+    assert.equal(cookieRecibida, `jwt=${t}`);
   });
 
   it('si el total fue alterado responde 422 ORDEN_INCONSISTENTE y no crea el pago', async () => {

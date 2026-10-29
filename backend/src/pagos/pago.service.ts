@@ -1,11 +1,13 @@
 import crypto from 'node:crypto';
 import { errores, esErrorUnico } from '../errores';
 import type { EntradasClient } from '../integraciones/entradas.client';
+import { construirMensajes, PublicadorMock, type PublicadorEventos } from '../integraciones/eventos';
 import type { PasarelaPago } from '../integraciones/pasarela/pasarela';
 import type { UsuarioAutenticado } from '../middlewares/autenticacion';
 import type { CrearTransaccionDto } from './pago.dto';
-import type { PagoRepository } from './pago.repository';
-import type { EstadoPago, FiltrosListado, OrigenCambio, Pago, Reembolso } from './pago.types';
+import type { CambioEstado, PagoRepository } from './pago.repository';
+import type { DestinatarioDto } from './pago.dto';
+import type { Destinatario, EstadoPago, FiltrosListado, OrigenCambio, Pago, Reembolso } from './pago.types';
 
 /**
  * Lógica de negocio del módulo de Pagos. No sabe nada de HTTP.
@@ -56,7 +58,14 @@ export class PagoService {
     private readonly repo: PagoRepository,
     private readonly pasarela: PasarelaPago,
     private readonly entradas: EntradasClient,
-    private readonly opciones: { checkoutExpiracionMin: number; frontendUrl: string },
+    private readonly opciones: {
+      checkoutExpiracionMin: number;
+      frontendUrl: string;
+      separadorEventos?: '_' | '.';
+      /** Routing key del evento para Promociones (contrato v1.0: pago.completado). Vacío = no se publica. */
+      clavePromociones?: string;
+    },
+    private readonly eventos: PublicadorEventos = new PublicadorMock(),
   ) {}
 
   // ------------------------------------------------------------------
@@ -65,13 +74,14 @@ export class PagoService {
   async crearTransaccion(
     dto: CrearTransaccionDto,
     usuario: UsuarioAutenticado,
-    authorization?: string,
+    /** Header Cookie de la petición (jwt=...): se reenvía a Entradas, que valida la misma sesión con Auth. */
+    cookie?: string,
   ): Promise<ResultadoCreacion> {
     const existente = await this.repo.buscarPorReserva(dto.id_reserva);
     if (existente) return this.respuestaReintento(this.validarReintento(existente, dto, usuario));
 
     // BE2: se valida la orden contra el servicio de Entradas (fuente oficial del total)
-    const orden = await this.entradas.obtenerOrden(dto.id_reserva, authorization);
+    const orden = await this.entradas.obtenerOrden(dto.id_reserva, cookie);
     if (orden) {
       const diferencias: string[] = [];
       if (orden.total !== dto.total) diferencias.push(`total recibido ${dto.total} ≠ total en Entradas ${orden.total}`);
@@ -83,8 +93,12 @@ export class PagoService {
       if (dto.id_evento && orden.id_evento && orden.id_evento !== dto.id_evento) {
         diferencias.push(`id_evento recibido ${dto.id_evento} ≠ id_evento en Entradas ${orden.id_evento}`);
       }
+      if (dto.nombre_codigo && orden.nombre_codigo && orden.nombre_codigo !== dto.nombre_codigo) {
+        diferencias.push(`nombre_codigo recibido ${dto.nombre_codigo} ≠ código en Entradas ${orden.nombre_codigo}`);
+      }
       if (diferencias.length > 0) throw errores.ordenInconsistente(diferencias);
       if (!dto.id_evento && orden.id_evento) dto = { ...dto, id_evento: orden.id_evento };
+      if (!dto.nombre_codigo && orden.nombre_codigo) dto = { ...dto, nombre_codigo: orden.nombre_codigo };
     }
 
     const idPago = crypto.randomUUID();
@@ -105,6 +119,8 @@ export class PagoService {
         id_pago: idPago,
         id_reserva: dto.id_reserva,
         id_usuario: usuario.id_usuario,
+        id_evento: dto.id_evento,
+        nombre_codigo: dto.nombre_codigo,
         monto: dto.total,
         stripe_session_id: sesion.id,
         stripe_payment_intent_id: null,
@@ -140,6 +156,8 @@ export class PagoService {
         id_pago: idPago,
         id_reserva: dto.id_reserva,
         id_usuario: usuario.id_usuario,
+        id_evento: dto.id_evento,
+        nombre_codigo: dto.nombre_codigo,
         monto: dto.total,
         stripe_session_id: null,
         stripe_payment_intent_id: intento.id,
@@ -167,7 +185,11 @@ export class PagoService {
   }
 
   private validarReintento(existente: Pago, dto: CrearTransaccionDto, usuario: UsuarioAutenticado): Pago {
-    const mismoPedido = existente.monto === dto.total && existente.id_usuario === usuario.id_usuario;
+    const mismoPedido =
+      existente.monto === dto.total &&
+      existente.id_usuario === usuario.id_usuario &&
+      // Un reintento puede omitir el código (pudo venir desde Entradas), pero no traer otro distinto.
+      (!dto.nombre_codigo || existente.nombre_codigo === dto.nombre_codigo);
     if (!mismoPedido) throw errores.conflictoIdempotencia(dto.id_reserva);
     return existente;
   }
@@ -194,6 +216,8 @@ export class PagoService {
     idPago: string,
     usuario: UsuarioAutenticado,
   ): Promise<{ pago: Pago; client_secret: string | null }> {
+    // Pagar es solo del comprador dueño (staff consulta y anula, pero no paga por otro).
+    await this.buscarDueno(idPago, usuario, 'Solo el comprador dueño del pago puede pagarlo');
     const pago = await this.obtenerPago(idPago, usuario); // sincroniza con Stripe si sigue PENDIENTE
     let clientSecret: string | null = null;
     if (pago.estado_pago === 'PENDIENTE' && esPagoFormulario(pago) && pago.stripe_payment_intent_id) {
@@ -237,13 +261,13 @@ export class PagoService {
     if (pago.estado_pago === 'PENDIENTE') {
       if (pago.stripe_session_id) await this.pasarela.expirarSesion(pago.stripe_session_id);
       else if (pago.stripe_payment_intent_id) await this.pasarela.cancelarIntento(pago.stripe_payment_intent_id);
-      const anulado = await this.repo.cambiarEstado({
+      const anulado = await this.cambiar({
         id_pago: idPago,
         desde: ['PENDIENTE'],
         hacia: 'ANULADO',
         origen: 'REEMBOLSO',
         detalle: `Anulado antes del pago: ${motivo}`,
-      });
+      }, motivo);
       if (!anulado) throw errores.transicionConcurrente();
       return { pago: anulado, accion: 'ANULADO', ya_procesado: false, reembolso: null };
     }
@@ -255,14 +279,14 @@ export class PagoService {
         monto: pago.monto,
         id_pago: idPago,
       });
-      const reembolsado = await this.repo.cambiarEstado({
+      const reembolsado = await this.cambiar({
         id_pago: idPago,
         desde: ['APROBADO'],
         hacia: 'REEMBOLSADO',
         origen: 'REEMBOLSO',
         detalle: `Reembolso ${resultado.id}: ${motivo}`,
         reembolso: { monto: pago.monto, motivo, estado: resultado.estado, stripe_refund_id: resultado.id },
-      });
+      }, motivo);
       if (!reembolsado) throw errores.transicionConcurrente();
       const reembolsos = await this.repo.reembolsosDe(idPago);
       return { pago: reembolsado, accion: 'REEMBOLSADO', ya_procesado: false, reembolso: reembolsos.at(-1) ?? null };
@@ -288,7 +312,7 @@ export class PagoService {
       const detalle = `Evento Stripe ${evento.id} (${evento.tipo_original})`;
       let actualizado: Pago | null = null;
       if (evento.tipo === 'PAGO_APROBADO') {
-        actualizado = await this.repo.cambiarEstado({
+        actualizado = await this.cambiar({
           id_pago: pago.id_pago,
           desde: ['PENDIENTE'],
           hacia: 'APROBADO',
@@ -297,7 +321,7 @@ export class PagoService {
           stripe_payment_intent_id: evento.payment_intent_id,
         });
       } else if (evento.tipo === 'PAGO_RECHAZADO' || evento.tipo === 'SESION_EXPIRADA') {
-        actualizado = await this.repo.cambiarEstado({
+        actualizado = await this.cambiar({
           id_pago: pago.id_pago,
           desde: ['PENDIENTE'],
           hacia: 'RECHAZADO',
@@ -322,10 +346,10 @@ export class PagoService {
   }
 
   // ------------------------------------------------------------------
-  // DELETE /{id_pago} — eliminar un pago que no movió dinero (solo ADMIN)
+  // DELETE /{id_pago} — eliminar un pago que no movió dinero (solo staff)
   // ------------------------------------------------------------------
   async eliminarPago(idPago: string, usuario: UsuarioAutenticado): Promise<{ id_pago: string; estado_pago: string }> {
-    if (usuario.rol !== 'ADMIN') throw errores.noAutorizado('Solo un usuario con rol ADMIN puede eliminar pagos');
+    if (usuario.rol !== 'staff') throw errores.noAutorizado('Solo un usuario con rol staff puede eliminar pagos');
     const { resultado, estado } = await this.repo.eliminar(idPago, ESTADOS_ELIMINABLES);
     if (resultado === 'no_existe') throw errores.pagoNoEncontrado(idPago);
     if (resultado === 'no_permitido') throw errores.pagoNoEliminable(estado ?? 'desconocido');
@@ -333,10 +357,80 @@ export class PagoService {
   }
 
   // ------------------------------------------------------------------
+  // Destinatario: comprar la entrada para otra persona (contrato Auth ↔ Pagos)
+  // ------------------------------------------------------------------
+  async obtenerDestinatario(idPago: string): Promise<Destinatario | null> {
+    return this.repo.buscarDestinatario(idPago);
+  }
+
+  /**
+   * Registra a quién se le emite la entrada. Solo el comprador dueño y solo con el pago PENDIENTE.
+   */
+  async definirDestinatario(idPago: string, dto: DestinatarioDto, usuario: UsuarioAutenticado): Promise<Destinatario> {
+    const pago = await this.buscarDueno(idPago, usuario, 'Solo el comprador dueño del pago puede elegir el destinatario');
+    if (pago.estado_pago !== 'PENDIENTE') throw errores.pagoNoEditable(pago.estado_pago);
+    const guardado = await this.repo.guardarDestinatario(idPago, { nombre: dto.nombre, email: dto.email, rut: dto.rut });
+    if (!guardado) {
+      const actual = await this.repo.buscarPorId(idPago);
+      throw actual ? errores.pagoNoEditable(actual.estado_pago) : errores.pagoNoEncontrado(idPago);
+    }
+    return guardado;
+  }
+
+  /** La entrada vuelve a ser para el comprador. */
+  async quitarDestinatario(idPago: string, usuario: UsuarioAutenticado): Promise<void> {
+    const pago = await this.buscarDueno(idPago, usuario, 'Solo el comprador dueño del pago puede elegir el destinatario');
+    if (pago.estado_pago !== 'PENDIENTE') throw errores.pagoNoEditable(pago.estado_pago);
+    await this.repo.eliminarDestinatario(idPago);
+  }
+
+  // ------------------------------------------------------------------
   // Auxiliares
   // ------------------------------------------------------------------
 
-  /** Política de autorización: el dueño del pago o un rol privilegiado (ADMIN/SERVICIO). */
+  /** Cambia el estado y, si hubo transición, publica el evento en el broker. */
+  private async cambiar(cambio: CambioEstado, motivo: string | null = null): Promise<Pago | null> {
+    const pago = await this.repo.cambiarEstado(cambio);
+    if (pago) await this.notificar(pago, motivo ?? cambio.motivo_rechazo ?? null);
+    return pago;
+  }
+
+  /**
+   * Publicación "best effort": si el broker no está disponible se registra en el log y el
+   * pago igual queda en su nuevo estado (Entradas puede seguir consultando GET /{id_pago}).
+   */
+  private async notificar(pago: Pago, motivo: string | null): Promise<void> {
+    try {
+      const destinatario = await this.repo.buscarDestinatario(pago.id_pago);
+      const mensajes = construirMensajes(
+        pago,
+        destinatario,
+        { separador: this.opciones.separadorEventos ?? '_', clavePromociones: this.opciones.clavePromociones },
+        motivo,
+      );
+      // Cada mensaje por separado: si uno falla, igual se intenta el siguiente.
+      for (const mensaje of mensajes) {
+        await this.eventos.publicar(mensaje).catch((error: Error) => {
+          console.warn(`[pagos] No se pudo publicar ${mensaje.tipo} del pago ${pago.id_pago}:`, error.message);
+        });
+      }
+    } catch (error) {
+      console.warn(`[pagos] No se pudo publicar el evento del pago ${pago.id_pago}:`, (error as Error).message);
+    }
+  }
+
+  /**
+   * Solo el comprador dueño del pago. Contrato Auth v1.3 (regla 7): staff puede consultar pagos ajenos
+   * y anularlos o reembolsarlos, pero no pagarlos ni elegir a quién se emite la entrada.
+   */
+  private async buscarDueno(idPago: string, usuario: UsuarioAutenticado, mensaje: string): Promise<Pago> {
+    const pago = await this.repo.buscarPorId(idPago);
+    if (!pago) throw errores.pagoNoEncontrado(idPago);
+    if (pago.id_usuario !== usuario.id_usuario) throw errores.noAutorizado(mensaje);
+    return pago;
+  }
+
+  /** Política de autorización: el dueño del pago o un rol privilegiado (staff). */
   private async buscarAutorizado(idPago: string, usuario: UsuarioAutenticado): Promise<Pago> {
     const pago = await this.repo.buscarPorId(idPago);
     if (!pago) throw errores.pagoNoEncontrado(idPago);
@@ -356,7 +450,7 @@ export class PagoService {
     else if (pago.stripe_payment_intent_id) consulta = await this.pasarela.consultarIntento(pago.stripe_payment_intent_id);
     else return pago;
     if (consulta.estado === 'PAGADA') {
-      const aprobado = await this.repo.cambiarEstado({
+      const aprobado = await this.cambiar({
         id_pago: pago.id_pago,
         desde: ['PENDIENTE'],
         hacia: 'APROBADO',
@@ -367,7 +461,7 @@ export class PagoService {
       return aprobado ?? (await this.repo.buscarPorId(pago.id_pago)) ?? pago;
     }
     if (consulta.estado === 'EXPIRADA') {
-      const rechazado = await this.repo.cambiarEstado({
+      const rechazado = await this.cambiar({
         id_pago: pago.id_pago,
         desde: ['PENDIENTE'],
         hacia: 'RECHAZADO',

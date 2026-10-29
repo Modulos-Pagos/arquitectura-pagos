@@ -1,35 +1,62 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Elements } from '@stripe/react-stripe-js';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import BannerPasos from '@/components/layout/BannerPasos';
-import CheckoutForm, { type PagoExistente } from '@/components/checkout/CheckoutForm';
+import CheckoutForm, { type EstadoPerfil, type PagoExistente } from '@/components/checkout/CheckoutForm';
 import OrderSummary from '@/components/checkout/OrderSummary';
 import Confirmacion from '@/components/checkout/Confirmacion';
-import { obtenerDatosCheckout, type Pago } from '@/lib/api';
-import { iniciales, PEDIDO_DEMO } from '@/lib/pedido';
+import { ErrorApi, obtenerDatosCheckout, obtenerPerfil, type Destinatario, type Pago } from '@/lib/api';
+import { formatoCLP, iniciales, PEDIDO_DEMO } from '@/lib/pedido';
+import type { Notificacion } from '@/components/layout/Notificaciones';
 import { stripePromise } from '@/lib/stripe';
 
 type Carga =
   | { estado: 'cargando' }
-  | { estado: 'listo'; existente: PagoExistente | null }
+  | { estado: 'listo'; existente: PagoExistente | null; destinatario?: Destinatario | null }
   | { estado: 'error'; mensaje: string; urlStripe?: string | null };
 
 /**
  * Flujo del módulo de Pagos:
  *   - Con ?id_pago=... (url_checkout que entrega el backend a Entradas): se cobra ese pago existente.
  *   - Sin id_pago: demo con el pedido de ejemplo (el front crea el pago).
- *   Paso 1 (Pago) → formulario con Stripe Elements. Paso 2 (Confirmación) → resultado del microservicio.
+ *   Paso 1 (Pago) → datos del comprador (Auth, vía Pagos), "¿Para quién es la entrada?" y formulario
+ *   con Stripe Elements. Paso 2 (Confirmación) → resultado del microservicio.
+ *   Todas las llamadas van al API Gateway: /api/pagos/**.
  */
 export default function CheckoutPage() {
   const pedido = PEDIDO_DEMO;
   const idPago = useSearchParams().get('id_pago');
   const [pago, setPago] = useState<Pago | null>(null);
   const [carga, setCarga] = useState<Carga>(idPago ? { estado: 'cargando' } : { estado: 'listo', existente: null });
+  const [perfil, setPerfil] = useState<EstadoPerfil>({ estado: 'cargando' });
+
+  // Sesión y datos del comprador: Pagos los valida con Auth (contrato Auth ↔ Pagos v1.3).
+  const pedirPerfil = useCallback(
+    () =>
+      obtenerPerfil()
+        .then((datos) => setPerfil({ estado: 'listo', perfil: datos }))
+        .catch((e: unknown) =>
+          setPerfil({
+            estado: 'error',
+            mensaje: e instanceof Error ? e.message : 'Auth no disponible',
+            status: e instanceof ErrorApi ? e.status : 0,
+          }),
+        ),
+    [],
+  );
+  const reintentarPerfil = () => {
+    setPerfil({ estado: 'cargando' });
+    void pedirPerfil();
+  };
+
+  useEffect(() => {
+    void pedirPerfil();
+  }, [pedirPerfil]);
 
   useEffect(() => {
     if (!idPago) return;
@@ -55,6 +82,7 @@ export default function CheckoutPage() {
               monto: datos.monto,
               client_secret: datos.client_secret,
             },
+            destinatario: datos.destinatario ?? null,
           });
         }
       })
@@ -67,6 +95,10 @@ export default function CheckoutPage() {
   }, [idPago]);
 
   const existente = carga.estado === 'listo' ? carga.existente : null;
+  const destinatarioInicial = carga.estado === 'listo' ? (carga.destinatario ?? null) : null;
+  // Aviso local del resultado del pago en la campana (hasta que Notificaciones exponga su API).
+  const notificaciones: Notificacion[] = pago ? [notificacionDePago(pago)] : [];
+  const nombreComprador = perfil.estado === 'listo' ? perfil.perfil.nombre_completo : '';
 
   let contenido: React.ReactNode;
   if (pago) {
@@ -94,14 +126,21 @@ export default function CheckoutPage() {
   } else {
     contenido = (
       <Elements stripe={stripePromise} options={{ locale: 'es' }}>
-        <CheckoutForm pedido={pedido} existente={existente} onFinalizado={setPago} />
+        <CheckoutForm
+          pedido={pedido}
+          existente={existente}
+          perfil={perfil}
+          onReintentarPerfil={reintentarPerfil}
+          destinatarioInicial={destinatarioInicial}
+          onFinalizado={setPago}
+        />
       </Elements>
     );
   }
 
   return (
     <div className="min-h-screen flex flex-col bg-ticket-bg">
-      <Header iniciales={iniciales(pedido.comprador.nombre)} />
+      <Header iniciales={nombreComprador ? iniciales(nombreComprador) : undefined} notificaciones={notificaciones} />
       <BannerPasos paso={pago ? 2 : 1} />
       {/* Contenido: 1200px máx., grid de 12 columnas, gutters de 24px (fila 13) */}
       <main className="flex-grow w-full max-w-[1200px] mx-auto px-4 md:px-6 py-8">
@@ -119,4 +158,19 @@ export default function CheckoutPage() {
       <Footer />
     </div>
   );
+}
+
+function notificacionDePago(pago: Pago): Notificacion {
+  const para = pago.destinatario ? ` La entrada se enviará a ${pago.destinatario.nombre}.` : '';
+  const base = { id: `pago-${pago.id_pago}-${pago.estado_pago}`, fecha: pago.fecha_actualizacion, leida: false };
+  switch (pago.estado_pago) {
+    case 'APROBADO':
+      return { ...base, tono: 'exito', titulo: 'Pago aprobado', detalle: `Pagaste ${formatoCLP(pago.monto)}.${para}` };
+    case 'PENDIENTE':
+      return { ...base, tono: 'info', titulo: 'Pago en proceso', detalle: 'Stripe aún está confirmando tu pago.' };
+    case 'REEMBOLSADO':
+      return { ...base, tono: 'info', titulo: 'Pago reembolsado', detalle: `Se devolvieron ${formatoCLP(pago.monto)}.` };
+    default:
+      return { ...base, tono: 'peligro', titulo: `Pago ${pago.estado_pago.toLowerCase()}`, detalle: 'No se realizó ningún cobro.' };
+  }
 }

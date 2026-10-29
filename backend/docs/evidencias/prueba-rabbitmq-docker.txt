@@ -1,0 +1,19 @@
+Prueba de integración con el RabbitMQ de la plataforma (Docker) — 2026-10-28 18:10 (hora de Chile)
+
+Montaje (igual al repo del Platform Team FWizav/backendticketU):
+  - red Docker: plataforma-eventos-net
+  - RabbitMQ: contenedor ticketu-rabbitmq (rabbitmq:3.13-management-alpine), usuario ticketu, vhost ticketu
+  - Pagos: docker compose up (pagos-service en la red común, puerto 3004 del host; pagos-db en 5433)
+    BROKER_MODO=rabbitmq, BROKER_URL=amqp://ticketu:ticketu_dev@ticketu-rabbitmq:5672/ticketu
+  - Consumidor de prueba (simula a Entradas y Promociones, cada uno con su cola durable):
+      entradas.pagos    --bind--> pago.realizado
+      promociones.pagos --bind--> pago.completado
+
+Pasos:
+  1. POST http://localhost:3004/api/pagos/transacciones  {id_evento: evt-123, total: 7500, nombre_codigo: DESC50}  -> 201
+  2. Webhook de pago completado (pasarela simulada)                                                                  -> 200, APROBADO
+
+Log del consumidor:
+listo
+[entradas.pagos] routingKey=pago.realizado id_pago=9863c6cc-322f-416f-be28-34f4ccef34e9 nombre_codigo=DESC50 id_evento=evt-123 eventName=pago.realizado data.id_pago=9863c6cc-322f-416f-be28-34f4ccef34e9
+[promociones.pagos] routingKey=pago.completado id_pago=9863c6cc-322f-416f-be28-34f4ccef34e9 nombre_codigo=DESC50 id_evento=evt-123 eventName=pago.completado data.id_pago=9863c6cc-322f-416f-be28-34f4ccef34e9
