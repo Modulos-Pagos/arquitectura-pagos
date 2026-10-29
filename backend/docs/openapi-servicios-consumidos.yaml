@@ -1,17 +1,20 @@
 openapi: 3.0.3
 info:
   title: Pagos — Servicios externos que INVOCA el módulo
-  version: 1.0.0
+  version: 1.4.0
   description: |
     Definición de los servicios de **otros squads** y de la **API externa** que el módulo de Pagos invoca (ítem BE2).
     El código de invocación está en:
     - `src/integraciones/entradas.client.ts` → módulo **Entradas/Inventario**
     - `src/integraciones/pasarela/stripe.pasarela.ts` → **Stripe** (pasarela de pago externa)
+    - `src/integraciones/auth.client.ts` → módulo **Auth** (contrato Auth ↔ Pagos v1.3) — usado por `src/middlewares/autenticacion.ts`
+    - `src/integraciones/eventos/` → **RabbitMQ** de la plataforma (Pagos publica `pago.*` en `ticketu.events`)
 
     ### Dependencias según la tabla TITEC 2026-2
     | Dato que Pagos recibe | Módulo de origen | Servicio invocado | Issue de integración |
     |---|---|---|---|
-    | Orden de compra: `cantidad_entradas`, `total` | Entradas/Inventario | `GET /api/v1/entradas/reservas/{id_reserva}` | INT-01 |
+    | Orden de compra: `cantidad_entradas`, `total` | Entradas/Inventario | `GET /api/entradas/reservas/{id_reserva}` | INT-01 |
+    | Usuario (id, rol) y perfil (nombre, RUT, correo) de la sesión | Auth | `GET /internal/validar-sesion` (en cada petición) | Contrato Auth ↔ Pagos v1.3 |
 
     La ruta y el formato de respuesta de Entradas deben quedar confirmados en el Swagger del equipo Entradas.
     El cliente es tolerante: acepta `total` o `monto`, y `cantidad_entradas` o `cantidad`.
@@ -20,23 +23,26 @@ servers:
     description: Entradas/Inventario (red Docker del curso; configurable con ENTRADAS_BASE_URL)
   - url: https://api.stripe.com
     description: Stripe API (modo test)
+  - url: http://auth-service:10000
+    description: Auth en la red interna de la plataforma (endpoint interno, no pasa por el Gateway; configurable con AUTH_BASE_URL)
 tags:
+  - name: Auth
   - name: Entradas/Inventario
   - name: Stripe
 paths:
-  /api/v1/entradas/reservas/{id_reserva}:
+  /api/entradas/reservas/{id_reserva}:
     get:
       tags: [Entradas/Inventario]
       summary: '[Entradas] Obtener la orden de compra de una reserva'
       description: |
         Pagos la invoca en `POST /api/v1/pagos/transacciones`, antes de crear el cobro, para verificar que
         `total`, `cantidad_entradas` e `id_evento` coinciden con lo registrado por Entradas.
-        Se reenvía el mismo header `Authorization` recibido. Timeout: `ENTRADAS_TIMEOUT_MS` (500 ms por defecto,
+        Se reenvía el mismo header `Cookie` (`jwt=...`) recibido, para que Entradas valide la sesión con Auth. Timeout: `ENTRADAS_TIMEOUT_MS` (500 ms por defecto,
         para respetar el SLA de 2000 ms).
       servers:
         - url: http://entradas-service:3000
       security:
-        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - { name: id_reserva, in: path, required: true, schema: { type: string }, example: res-98765 }
       responses:
@@ -53,10 +59,53 @@ paths:
                   cantidad_entradas: { type: integer, example: 2 }
                   total: { type: integer, description: 'CLP, ya con descuentos aplicados', example: 15000 }
                   estado: { type: string, example: RESERVADA }
+                  nombre_codigo:
+                    type: string
+                    nullable: true
+                    description: 'Opcional. Código de descuento de Promociones aplicado a la reserva; Pagos lo reenvía en pago.completado.'
+                    example: DESC50
         '404':
           description: La reserva no existe → Pagos responde 422 RESERVA_NO_ENCONTRADA.
         '5XX':
           description: Error de Entradas → Pagos responde 503 ENTRADAS_NO_DISPONIBLE.
+
+  /internal/validar-sesion:
+    get:
+      tags: [Auth]
+      summary: '[Auth] Validar sesión y obtener el perfil (contrato Auth ↔ Pagos v1.3)'
+      description: |
+        Pagos la invoca en **cada petición protegida**, antes de cualquier lógica de negocio (middleware `autenticacion.ts`).
+        Reenvía el header `Cookie` tal como llegó (desde el navegador o desde Entradas) y su clave `x-api-key`.
+        Endpoint de red interna: no está expuesto al front ni pasa por `/api/auth` del Gateway.
+        Timeout `AUTH_TIMEOUT_MS` (1000 ms, acordado con Auth). Pagos no valida el JWT por su cuenta.
+      servers:
+        - url: http://auth-service:10000
+      parameters:
+        - { name: Cookie, in: header, required: true, schema: { type: string }, example: 'jwt=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...' }
+        - { name: x-api-key, in: header, required: true, schema: { type: string }, description: 'INTERNAL_API_KEY que Auth entrega a Pagos (AUTH_INTERNAL_API_KEY)' }
+      responses:
+        '200':
+          description: 'Sesión válida. Auth incluye el header Cache-Control no-store.'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [valido, usuario]
+                properties:
+                  valido: { type: boolean, example: true }
+                  usuario:
+                    type: object
+                    required: [id_usuario, nombre_completo, rut, correo_electronico, rol]
+                    properties:
+                      id_usuario: { type: string, format: uuid, example: 3f1e2c1a-4b8d-4a2e-9c3f-7d1e2f9b2d4a }
+                      nombre_completo: { type: string, example: Javier Romero }
+                      rut: { type: string, example: 21.234.567-8 }
+                      correo_electronico: { type: string, example: javier@ejemplo.cl }
+                      rol: { type: string, enum: [usuario, organizador, staff], example: usuario }
+        '401': { description: 'Sin cookie o sin jwt, token inválido o vencido, sesión revocada o usuario inexistente → Pagos responde 401' }
+        '403': { description: 'x-api-key ausente o inválida → Pagos responde 403 SERVICIO_NO_AUTORIZADO' }
+        '500': { description: 'Error interno de Auth → Pagos responde 500' }
+        '503': { description: 'Auth no disponible (o timeout / conexión rechazada) → Pagos responde 503 AUTH_NO_DISPONIBLE' }
 
   /v1/checkout/sessions:
     post:
@@ -170,10 +219,11 @@ paths:
           description: Reembolso creado (`id`, `status`).
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: jwt
+      description: Cookie de sesión emitida por Auth, reenviada intacta.
     stripeKey:
       type: http
       scheme: bearer

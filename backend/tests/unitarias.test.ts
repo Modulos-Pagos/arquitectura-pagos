@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { AppError } from '../src/errores';
 import { codificarFormulario, StripePasarela } from '../src/integraciones/pasarela/stripe.pasarela';
 import { validarCrearTransaccion, validarFiltrosListado, validarIdPago, validarReembolso } from '../src/pagos/pago.dto';
-import { firmarJwt, verificarJwt } from '../src/utils/jwt';
+import { firmarJwt, verificarJwt } from '../scripts/auth-simulado/jwt';
 
 function codigoDe(fn: () => unknown): string | undefined {
   try {
@@ -18,7 +18,7 @@ function codigoDe(fn: () => unknown): string | undefined {
 describe('Validación de DTOs', () => {
   it('acepta una orden de compra válida', () => {
     const dto = validarCrearTransaccion({ id_reserva: ' res-1 ', id_evento: 'evt-1', total: 15000, cantidad_entradas: 2 });
-    assert.deepEqual(dto, { id_reserva: 'res-1', id_evento: 'evt-1', total: 15000, cantidad_entradas: 2, metodo: 'formulario' });
+    assert.deepEqual(dto, { id_reserva: 'res-1', id_evento: 'evt-1', nombre_codigo: null, total: 15000, cantidad_entradas: 2, metodo: 'formulario' });
     const sinEvento = validarCrearTransaccion({ id_reserva: 'res-2', total: 15000, cantidad_entradas: 2 });
     assert.equal(sinEvento.id_evento, null);
   });
@@ -67,7 +67,7 @@ describe('Validación de DTOs', () => {
   });
 });
 
-describe('JWT (tokens de Auth)', () => {
+describe('JWT del Auth simulado (herramienta de desarrollo; Pagos no valida JWT)', () => {
   it('verifica un token válido y devuelve sus claims', () => {
     const t = firmarJwt({ id_usuario: 'usr-1', rol: 'COMPRADOR' }, 'secreto');
     const payload = verificarJwt(t, 'secreto');

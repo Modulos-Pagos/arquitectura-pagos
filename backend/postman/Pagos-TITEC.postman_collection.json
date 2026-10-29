@@ -2,18 +2,11 @@
   "info": {
     "_postman_id": "9a4c1f7e-3b2d-4e8a-a6f1-pagos-titec-2026",
     "name": "Pagos TITEC — Pruebas de integración",
-    "description": "Casos de prueba de integración del **microservicio de Pagos** (ítem CA2).\n\nCada request tiene su **resultado esperado** (descripción) y **tests automáticos** (pestaña Tests).\n\n**Cómo ejecutar**\n1. Levantar el servicio con `PASARELA=mock` (el webhook acepta eventos simulados sin firma).\n2. Importar esta colección y el entorno `pagos-local.postman_environment.json` (tokens generados con `npm run postman:env`).\n3. Seleccionar el entorno y ejecutar la colección completa con **Run collection** (en orden).\n   Por consola: `npm run test:integracion` (Newman) deja el resultado en `docs/evidencias/`.\n\nCubre los servicios que consumen **Entradas** (crear, polling, reembolso), **Promociones** (listado) y **Stripe** (webhook).",
+    "description": "Casos de prueba de integración del **microservicio de Pagos** (ítem CA2).\n\nCada request tiene su **resultado esperado** (descripción) y **tests automáticos** (pestaña Tests).\n\n**Cómo ejecutar**\n1. Levantar el servicio con `PASARELA=mock` (el webhook acepta eventos simulados sin firma).\n2. Importar esta colección y el entorno `pagos-local.postman_environment.json` (tokens del Auth simulado generados con `npm run postman:env`). Pagos valida cada cookie con Auth por HTTP: levantar `npm run auth:simulado` y Pagos con `AUTH_BASE_URL=http://localhost:3001`.\n3. Seleccionar el entorno y ejecutar la colección completa con **Run collection** (en orden).\n   Por consola: `npm run test:integracion` (Newman) deja el resultado en `docs/evidencias/`.\n\nCubre los servicios que consumen **Entradas** (crear, polling, reembolso), **Promociones** (listado) y **Stripe** (webhook).\n\n**Sesión (contrato Auth ↔ Pagos v1.3):** cada request envía `Cookie: jwt={{token...}}`. Con Auth real hay que reemplazar los tokens del entorno por cookies `jwt` emitidas por Auth.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
-    "type": "bearer",
-    "bearer": [
-      {
-        "key": "token",
-        "value": "{{tokenComprador}}",
-        "type": "string"
-      }
-    ]
+    "type": "noauth"
   },
   "item": [
     {
@@ -100,6 +93,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
               }
             ],
             "url": {
@@ -116,14 +113,7 @@
             },
             "description": "**Resultado esperado:** 201 con `id_pago` (UUID), `estado_pago: PENDIENTE`, `fecha_creacion` y `url_checkout`.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenComprador}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             },
             "body": {
               "mode": "raw",
@@ -159,6 +149,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
               }
             ],
             "url": {
@@ -175,14 +169,7 @@
             },
             "description": "**Resultado esperado:** 200 con el MISMO `id_pago` (no se crea un segundo cobro).",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenComprador}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             },
             "body": {
               "mode": "raw",
@@ -216,6 +203,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
               }
             ],
             "url": {
@@ -232,14 +223,7 @@
             },
             "description": "**Resultado esperado:** 409 `CONFLICTO_IDEMPOTENCIA`.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenComprador}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             },
             "body": {
               "mode": "raw",
@@ -278,6 +262,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
               }
             ],
             "url": {
@@ -294,14 +282,7 @@
             },
             "description": "**Resultado esperado:** 400 `VALIDACION_FALLIDA` con la lista de campos inválidos en `detalles`.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenComprador}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             },
             "body": {
               "mode": "raw",
@@ -316,7 +297,7 @@
           "response": []
         },
         {
-          "name": "Sin token (401)",
+          "name": "Sin cookie de sesión (401)",
           "event": [
             {
               "listen": "test",
@@ -349,7 +330,7 @@
                 "transacciones"
               ]
             },
-            "description": "**Resultado esperado:** 401 `NO_AUTENTICADO`.",
+            "description": "**Resultado esperado:** 401 `NO_AUTENTICADO` (la sesión solo se acepta en la cookie jwt).",
             "auth": {
               "type": "noauth"
             },
@@ -366,7 +347,64 @@
           "response": []
         },
         {
-          "name": "Request de Entradas v1.0: token_sesion en el body, sin id_evento (201)",
+          "name": "Authorization: Bearer ya no se acepta (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "      pm.test('Código NO_AUTENTICADO', () => pm.expect(pm.response.json().error).to.eql('NO_AUTENTICADO'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pagos/transacciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pagos",
+                "transacciones"
+              ]
+            },
+            "description": "**Contrato Auth v1.3 / Entradas v2.3.** El token en `Authorization: Bearer` (o en `token_sesion`) ya no se acepta.\n\n**Resultado esperado:** 401 `NO_AUTENTICADO`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenComprador}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReserva}}\",\n  \"id_evento\": \"{{idEvento}}\",\n  \"total\": 15000,\n  \"cantidad_entradas\": 2,\n  \"metodo\": \"checkout\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Request de Entradas v2.3: cookie jwt del comprador reenviada, sin id_evento (201)",
           "event": [
             {
               "listen": "prerequest",
@@ -400,6 +438,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
               }
             ],
             "url": {
@@ -414,13 +456,13 @@
                 "transacciones"
               ]
             },
-            "description": "**Contrato de Entradas v1.0.** Entradas envía el JWT en `token_sesion` (body) y no envía `id_evento`.\n\n**Resultado esperado:** 201 con `id_pago`, `estado_pago: PENDIENTE`, `fecha_creacion` y `url_checkout`.",
+            "description": "**Contrato Pagos ↔ Entradas v2.3.** Entradas reenvía intacto el header `Cookie` (jwt=...) del comprador y no envía `id_evento`.\n\n**Resultado esperado:** 201 con `id_pago`, `estado_pago: PENDIENTE`, `fecha_creacion` y `url_checkout`.",
             "auth": {
               "type": "noauth"
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"id_reserva\": \"{{idReservaEntradas}}\",\n  \"total\": 15000,\n  \"cantidad_entradas\": 2,\n  \"token_sesion\": \"{{tokenComprador}}\"\n}",
+              "raw": "{\n  \"id_reserva\": \"{{idReservaEntradas}}\",\n  \"total\": 15000,\n  \"cantidad_entradas\": 2\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -455,7 +497,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pagos/{{idPago}}",
               "host": [
@@ -470,14 +517,7 @@
             },
             "description": "**Resultado esperado:** 200 con `estado_pago: PENDIENTE`, `monto: 15000` y `fecha_creacion`.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenComprador}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -497,7 +537,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenOtroUsuario}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pagos/{{idPago}}",
               "host": [
@@ -512,20 +557,13 @@
             },
             "description": "**Resultado esperado:** 403 `NO_AUTORIZADO` (política de autorización: solo el dueño o rol SERVICIO/ADMIN).",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenOtroUsuario}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
         },
         {
-          "name": "Entradas consulta con token de servicio (200)",
+          "name": "Usuario staff consulta un pago ajeno (200)",
           "event": [
             {
               "listen": "test",
@@ -539,7 +577,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenStaff}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pagos/{{idPago}}",
               "host": [
@@ -552,16 +595,9 @@
                 "{{idPago}}"
               ]
             },
-            "description": "**Resultado esperado:** 200: el rol SERVICIO puede consultar cualquier pago.",
+            "description": "**Resultado esperado:** 200: el rol `staff` de Auth puede consultar cualquier pago.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenServicio}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -582,7 +618,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pagos/00000000-0000-4000-8000-000000000000",
               "host": [
@@ -597,14 +638,7 @@
             },
             "description": "**Resultado esperado:** 404 `PAGO_NO_ENCONTRADO`.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenComprador}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -624,7 +658,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pagos/pay-112233",
               "host": [
@@ -639,14 +678,7 @@
             },
             "description": "**Resultado esperado:** 400 `VALIDACION_FALLIDA` (id_pago debe ser UUID).",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenComprador}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -791,7 +823,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenStaff}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pagos/{{idPago}}",
               "host": [
@@ -806,14 +843,7 @@
             },
             "description": "**Resultado esperado:** 200 con `estado_pago: APROBADO` y `url_checkout: null`.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenServicio}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -874,7 +904,7 @@
       "name": "4. Promociones → Listado de pagos",
       "item": [
         {
-          "name": "Pagos APROBADOS de un usuario (rol SERVICIO)",
+          "name": "Pagos APROBADOS de un usuario (rol staff)",
           "event": [
             {
               "listen": "test",
@@ -897,7 +927,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenStaff}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pagos?id_usuario=usr-postman-1&estado=APROBADO",
               "host": [
@@ -921,14 +956,7 @@
             },
             "description": "**Resultado esperado:** 200 con `datos` que incluye el `id_pago` aprobado; todos en estado APROBADO.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenServicio}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -948,7 +976,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pagos?id_usuario=usr-postman-2",
               "host": [
@@ -968,14 +1001,7 @@
             },
             "description": "**Resultado esperado:** 403 `NO_AUTORIZADO`.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenComprador}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -995,7 +1021,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pagos?estado=PAGADO",
               "host": [
@@ -1015,14 +1046,7 @@
             },
             "description": "**Resultado esperado:** 400 `VALIDACION_FALLIDA`.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenComprador}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -1057,6 +1081,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenStaff}}"
               }
             ],
             "url": {
@@ -1074,14 +1102,7 @@
             },
             "description": "**Resultado esperado:** 200 con `accion: REEMBOLSADO` y `reembolso.monto: 15000`.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenServicio}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             },
             "body": {
               "mode": "raw",
@@ -1115,6 +1136,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenStaff}}"
               }
             ],
             "url": {
@@ -1132,14 +1157,7 @@
             },
             "description": "**Resultado esperado:** 200 con `ya_procesado: true` (no se devuelve el dinero dos veces).",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenServicio}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             },
             "body": {
               "mode": "raw",
@@ -1182,6 +1200,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
               }
             ],
             "url": {
@@ -1198,14 +1220,7 @@
             },
             "description": "**Resultado esperado:** 201 con un nuevo pago PENDIENTE.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenComprador}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             },
             "body": {
               "mode": "raw",
@@ -1243,6 +1258,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenStaff}}"
               }
             ],
             "url": {
@@ -1260,14 +1279,7 @@
             },
             "description": "**Resultado esperado:** 200 con `accion: ANULADO` y `reembolso: null` (no hubo cobro).",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenServicio}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             },
             "body": {
               "mode": "raw",
@@ -1300,6 +1312,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenStaff}}"
               }
             ],
             "url": {
@@ -1317,14 +1333,7 @@
             },
             "description": "**Resultado esperado:** 400 `VALIDACION_FALLIDA`.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenServicio}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             },
             "body": {
               "mode": "raw",
@@ -1345,7 +1354,7 @@
       "description": "Operación de eliminación sobre la base de datos. Solo rol ADMIN y solo pagos RECHAZADOS o ANULADOS sin reembolsos.",
       "item": [
         {
-          "name": "Rol SERVICIO no puede eliminar (403)",
+          "name": "Rol organizador no puede eliminar (403)",
           "event": [
             {
               "listen": "test",
@@ -1359,7 +1368,12 @@
           ],
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenOrganizador}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pagos/{{idPago2}}",
               "host": [
@@ -1372,16 +1386,9 @@
                 "{{idPago2}}"
               ]
             },
-            "description": "**Resultado esperado:** 403. Solo un token con rol `ADMIN` puede eliminar pagos.",
+            "description": "**Resultado esperado:** 403. Solo un usuario con rol `staff` puede eliminar pagos.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenServicio}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -1402,7 +1409,12 @@
           ],
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenStaff}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pagos/{{idPago}}",
               "host": [
@@ -1417,20 +1429,13 @@
             },
             "description": "**Resultado esperado:** 409 `PAGO_NO_ELIMINABLE`: los pagos que movieron dinero se conservan por trazabilidad.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenAdmin}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
         },
         {
-          "name": "ADMIN elimina el pago ANULADO (200)",
+          "name": "Staff elimina el pago ANULADO (200)",
           "event": [
             {
               "listen": "test",
@@ -1449,7 +1454,12 @@
           ],
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenStaff}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pagos/{{idPago2}}",
               "host": [
@@ -1464,14 +1474,7 @@
             },
             "description": "**Resultado esperado:** 200 con `eliminado: true`. El registro se borra de la tabla `pagos`.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenAdmin}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -1491,7 +1494,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenStaff}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pagos/{{idPago2}}",
               "host": [
@@ -1506,14 +1514,436 @@
             },
             "description": "**Resultado esperado:** 404 `PAGO_NO_ENCONTRADO`.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenAdmin}}",
-                  "type": "string"
-                }
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Promociones → Código de descuento (contrato v1.0, rutas del Gateway)",
+      "item": [
+        {
+          "name": "Crear pago con nombre_codigo (201)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('idReservaPromo', 'res-promo-' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('idPagoPromo', pm.response.json().id_pago);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/transacciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "transacciones"
               ]
+            },
+            "description": "**Resultado esperado:** 201. Entradas envía el código de descuento aplicado; Pagos lo guarda para reenviarlo a Promociones en `pago.completado`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReservaPromo}}\",\n  \"id_evento\": \"evt-123\",\n  \"total\": 7500,\n  \"cantidad_entradas\": 2,\n  \"metodo\": \"checkout\",\n  \"nombre_codigo\": \"DESC50\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "El pago guarda id_evento y nombre_codigo (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Referencias para Promociones', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b.nombre_codigo).to.eql('DESC50');",
+                  "  pm.expect(b.id_evento).to.eql('evt-123');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/{{idPagoPromo}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "{{idPagoPromo}}"
+              ]
+            },
+            "description": "**Resultado esperado:** 200 con `nombre_codigo: DESC50` e `id_evento: evt-123`.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reintento con otro código (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/transacciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "transacciones"
+              ]
+            },
+            "description": "**Resultado esperado:** 409 `CONFLICTO_IDEMPOTENCIA`: la misma reserva no puede cambiar de código.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReservaPromo}}\",\n  \"id_evento\": \"evt-123\",\n  \"total\": 7500,\n  \"cantidad_entradas\": 2,\n  \"metodo\": \"checkout\",\n  \"nombre_codigo\": \"OTRO10\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "nombre_codigo inválido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Informa el campo', () => pm.expect(pm.response.json().detalles.join(' ')).to.include('nombre_codigo'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/transacciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "transacciones"
+              ]
+            },
+            "description": "**Resultado esperado:** 400 con el detalle de `nombre_codigo`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"res-promo-invalido\",\n  \"total\": 7500,\n  \"cantidad_entradas\": 2,\n  \"nombre_codigo\": 12345\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. Plataforma → Auth y destinatario",
+      "item": [
+        {
+          "name": "Perfil del comprador desde la sesión de Auth (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Perfil de la sesión de Auth (contrato v1.3)', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b.id_usuario).to.be.a('string');",
+                  "  pm.expect(b.correo_electronico).to.include('@');",
+                  "  pm.expect(b.nombre_completo).to.be.a('string');",
+                  "  pm.expect(b.rut).to.match(/^[0-9.]+-[0-9kK]$/);",
+                  "  pm.expect(b.rol).to.eql('usuario');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/comprador/perfil",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "comprador",
+                "perfil"
+              ]
+            },
+            "description": "**Resultado esperado:** 200 con `id_usuario`, `nombre_completo`, `rut`, `correo_electronico` y `rol` (contrato Auth ↔ Pagos v1.3).",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Comprar para otra persona: PUT destinatario (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('RUT normalizado', () => pm.expect(pm.response.json().destinatario.rut).to.eql('11111111-1'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/{{idPagoPromo}}/destinatario",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "{{idPagoPromo}}",
+                "destinatario"
+              ]
+            },
+            "description": "**Resultado esperado:** 200 con el destinatario guardado (solo el dueño y con el pago PENDIENTE).",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_usuario\": null,\n  \"nombre\": \"Camila Rojas\",\n  \"email\": \"camila@correo.cl\",\n  \"rut\": \"11.111.111-1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "RUT con dígito verificador inválido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenComprador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/{{idPagoPromo}}/destinatario",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "{{idPagoPromo}}",
+                "destinatario"
+              ]
+            },
+            "description": "**Resultado esperado:** 400: el RUT no pasa la validación del dígito verificador.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Camila Rojas\",\n  \"email\": \"camila@correo.cl\",\n  \"rut\": \"11.111.111-2\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Otro usuario no puede elegir el destinatario (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{tokenOtroUsuario}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/{{idPagoPromo}}/destinatario",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "{{idPagoPromo}}",
+                "destinatario"
+              ]
+            },
+            "description": "**Resultado esperado:** 403: solo el comprador dueño del pago.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Camila Rojas\",\n  \"email\": \"camila@correo.cl\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "response": []
@@ -1548,6 +1978,14 @@
     },
     {
       "key": "idReservaEntradas",
+      "value": ""
+    },
+    {
+      "key": "idReservaPromo",
+      "value": ""
+    },
+    {
+      "key": "idPagoPromo",
       "value": ""
     }
   ]

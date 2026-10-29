@@ -1,7 +1,8 @@
 import crypto from 'node:crypto';
 
 /**
- * Verificación de JWT HS256 (el algoritmo que usa Auth para firmar los tokens).
+ * SOLO PARA EL AUTH SIMULADO (desarrollo y pruebas). Pagos NO valida JWT: se lo pregunta a Auth
+ * (contrato Auth ↔ Pagos v1.3). Firma y verificación HS256 con node:crypto.
  * Implementado con node:crypto para no depender de librerías externas.
  */
 

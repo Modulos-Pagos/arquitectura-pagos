@@ -1,6 +1,6 @@
 # Diagrama relacional — Microservicio de Pagos
 
-> Generado automáticamente desde la base de datos con `npm run db:docs` (2026-09-30T20:44:03.452Z).
+> Generado automáticamente desde la base de datos con `npm run db:docs` (2026-10-28T22:41:51.118Z).
 > GitHub dibuja el diagrama a partir del bloque Mermaid. Para una imagen: DBeaver/pgAdmin > ER Diagram,
 > o en Supabase: Database > Schema Visualizer.
 
@@ -10,6 +10,8 @@ erDiagram
         uuid id_pago PK "NOT NULL"
         varchar_64 id_reserva UK "NOT NULL"
         varchar_64 id_usuario "NOT NULL"
+        varchar_64 id_evento "NULL"
+        varchar_50 nombre_codigo "NULL"
         integer monto "NOT NULL"
         char_3 moneda "NOT NULL"
         varchar_20 estado_pago "NOT NULL"
@@ -20,6 +22,13 @@ erDiagram
         timestamptz fecha_expiracion "NULL"
         timestamptz fecha_creacion "NOT NULL"
         timestamptz fecha_actualizacion "NOT NULL"
+    }
+    destinatarios_pago {
+        uuid id_pago FK,PK "NOT NULL"
+        varchar_120 nombre "NOT NULL"
+        varchar_254 email "NOT NULL"
+        varchar_12 rut "NULL"
+        timestamptz fecha_registro "NOT NULL"
     }
     eventos_webhook_stripe {
         varchar_255 id_evento_stripe PK "NOT NULL"
@@ -37,6 +46,7 @@ erDiagram
         varchar_255 stripe_refund_id UK "NULL"
         timestamptz fecha_creacion "NOT NULL"
     }
+    pagos ||--o| destinatarios_pago : "id_pago"
     pagos |o--o{ eventos_webhook_stripe : "id_pago"
     pagos ||--o{ reembolsos : "id_pago"
 ```
@@ -49,13 +59,15 @@ Se guardan solo como referencia; no se replican datos de negocio de otros squads
 | Columna | Módulo dueño del dato |
 |---|---|
 | `pagos.id_reserva` | Entradas/Inventario |
-| `pagos.id_evento` | Panel organizador / Catálogo |
 | `pagos.id_usuario` | Auth |
+| `pagos.id_evento` | Panel organizador / Catálogo (lo envía Entradas) |
+| `pagos.nombre_codigo` | Promociones (código de descuento, lo envía Entradas) |
 
 ## Relaciones
 
 | Restricción | Tabla hija | Columna | Tabla padre |
 |---|---|---|---|
+| `fk_destinatarios_pago_pagos` | destinatarios_pago | id_pago | pagos |
 | `fk_eventos_webhook_stripe_pagos` | eventos_webhook_stripe | id_pago | pagos |
 | `fk_reembolsos_pagos` | reembolsos | id_pago | pagos |
 

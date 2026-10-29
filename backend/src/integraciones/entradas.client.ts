@@ -7,14 +7,16 @@ import { errores } from '../errores';
  * "orden de compra (cantidad de entradas, total)". Además de recibirla en el
  * POST /transacciones, la verificamos contra la fuente oficial invocando:
  *
- *   GET {ENTRADAS_BASE_URL}/api/v1/entradas/reservas/{id_reserva}
- *   Authorization: <mismo token recibido>
- *   200 -> { id_reserva, id_evento, cantidad_entradas, total, estado }
+ *   GET {ENTRADAS_BASE_URL}/api/entradas/reservas/{id_reserva}
+ *   (prefijo /api/entradas que exige el API Gateway del Platform Team, que no reescribe el path;
+ *   si Entradas usa otra ruta se cambia con ENTRADAS_RUTA_RESERVA sin tocar el código)
+ *   Cookie: <el mismo header Cookie (jwt=...) que llegó a Pagos>
+ *   200 -> { id_reserva, id_evento, cantidad_entradas, total, estado, nombre_codigo? }
  *   404 -> la reserva no existe
  *
  * Así nadie puede alterar el monto entre Entradas y Pagos.
  * Contrato documentado en docs/openapi-servicios-consumidos.yaml
- * (ruta a confirmar con el equipo Entradas; ver issue de integración INT-01).
+ * (ver issue de integración INT-01).
  *
  * ENTRADAS_MODO=mock desactiva la invocación mientras Entradas no esté disponible.
  */
@@ -25,14 +27,20 @@ export interface OrdenCompraEntradas {
   cantidad_entradas: number;
   total: number;
   estado?: string;
+  /** Código de descuento de Promociones aplicado a la reserva (opcional). */
+  nombre_codigo?: string | null;
 }
 
 export interface OpcionesEntradas {
   modo: 'mock' | 'http';
   baseUrl: string;
   timeoutMs: number;
+  /** Ruta del servicio de Entradas; {id_reserva} se reemplaza por el id. */
+  rutaReserva?: string;
   fetchImpl?: typeof fetch;
 }
+
+export const RUTA_RESERVA_POR_DEFECTO = '/api/entradas/reservas/{id_reserva}';
 
 export class EntradasClient {
   private readonly fetch: typeof fetch;
@@ -49,15 +57,16 @@ export class EntradasClient {
    * Obtiene la orden de compra asociada a una reserva.
    * Devuelve null en modo mock (no hay verificación contra Entradas).
    */
-  async obtenerOrden(idReserva: string, authorization?: string): Promise<OrdenCompraEntradas | null> {
+  async obtenerOrden(idReserva: string, cookie?: string): Promise<OrdenCompraEntradas | null> {
     if (this.opciones.modo === 'mock') return null;
 
-    const url = `${this.opciones.baseUrl}/api/v1/entradas/reservas/${encodeURIComponent(idReserva)}`;
+    const ruta = (this.opciones.rutaReserva ?? RUTA_RESERVA_POR_DEFECTO).replace('{id_reserva}', encodeURIComponent(idReserva));
+    const url = `${this.opciones.baseUrl}${ruta}`;
     let respuesta: Response;
     try {
       respuesta = await this.fetch(url, {
         method: 'GET',
-        headers: { Accept: 'application/json', ...(authorization ? { Authorization: authorization } : {}) },
+        headers: { Accept: 'application/json', ...(cookie ? { Cookie: cookie } : {}) },
         signal: AbortSignal.timeout(this.opciones.timeoutMs),
       });
     } catch (error) {
@@ -87,6 +96,10 @@ export class EntradasClient {
       cantidad_entradas: cantidad,
       total,
       estado: typeof cuerpo.estado === 'string' ? cuerpo.estado : undefined,
+      nombre_codigo:
+        typeof (cuerpo.nombre_codigo ?? cuerpo.codigo) === 'string' && String(cuerpo.nombre_codigo ?? cuerpo.codigo).trim() !== ''
+          ? String(cuerpo.nombre_codigo ?? cuerpo.codigo).trim()
+          : null,
     };
   }
 }

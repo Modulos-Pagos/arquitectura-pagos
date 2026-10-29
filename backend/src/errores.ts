@@ -18,7 +18,7 @@ export class AppError extends Error {
 export const errores = {
   validacion: (detalles: string[]) =>
     new AppError(400, 'VALIDACION_FALLIDA', 'Los datos enviados no son válidos', detalles),
-  noAutenticado: (mensaje = 'Se requiere un token de autorización válido') =>
+  noAutenticado: (mensaje = 'Se requiere una sesión válida de Auth (cookie jwt)') =>
     new AppError(401, 'NO_AUTENTICADO', mensaje),
   noAutorizado: (mensaje = 'No tiene permisos para realizar esta operación') =>
     new AppError(403, 'NO_AUTORIZADO', mensaje),
@@ -48,6 +48,13 @@ export const errores = {
   pasarela: (mensaje: string) => new AppError(502, 'ERROR_PASARELA', `Error en la pasarela de pago: ${mensaje}`),
   entradasNoDisponible: (mensaje: string) =>
     new AppError(503, 'ENTRADAS_NO_DISPONIBLE', `No fue posible validar la orden con Entradas: ${mensaje}`),
+  authNoDisponible: (mensaje: string) =>
+    new AppError(503, 'AUTH_NO_DISPONIBLE', `No fue posible validar la sesión con Auth (${mensaje}). Intente más tarde.`),
+  servicioNoAutorizado: () =>
+    new AppError(403, 'SERVICIO_NO_AUTORIZADO', 'Auth rechazó la clave de servicio de Pagos (x-api-key)'),
+  errorAuth: () => new AppError(500, 'ERROR_INTERNO', 'Auth respondió con un error interno al validar la sesión'),
+  pagoNoEditable: (estado: string) =>
+    new AppError(409, 'PAGO_NO_EDITABLE', `El destinatario solo se puede cambiar mientras el pago está PENDIENTE (estado actual: ${estado})`),
 };
 
 /** Código de PostgreSQL para violación de UNIQUE. */

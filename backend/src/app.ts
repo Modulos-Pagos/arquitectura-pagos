@@ -17,8 +17,9 @@ function leerOpenApi(archivo: string): Record<string, unknown> {
 }
 
 export function crearApp(deps: Dependencias): Express {
-  const { config, servicio, repo, pasarela, entradas } = deps;
+  const { config, servicio, repo, pasarela, entradas, auth, eventos } = deps;
   const controlador = new PagoController(servicio);
+  const rutasPagos = ['/api/v1/pagos', config.prefijoGateway];
   const app = express();
 
   app.disable('x-powered-by');
@@ -26,11 +27,14 @@ export function crearApp(deps: Dependencias): Express {
 
   // Webhook de Stripe: necesita el body CRUDO para verificar la firma,
   // por eso se registra antes de express.json().
-  app.post('/api/v1/pagos/webhooks/stripe', express.raw({ type: '*/*', limit: '1mb' }), controlador.webhookStripe);
+  // Se acepta en /api/v1/pagos y en el prefijo del API Gateway (/api/pagos): el Gateway no reescribe el path.
+  for (const base of rutasPagos) {
+    app.post(`${base}/webhooks/stripe`, express.raw({ type: '*/*', limit: '1mb' }), controlador.webhookStripe);
+  }
 
   app.use(express.json({ limit: '100kb' }));
 
-  app.get('/health', async (_req, res) => {
+  const health: express.RequestHandler = async (_req, res) => {
     let baseDatos = 'ok';
     try {
       await repo.ping();
@@ -43,8 +47,12 @@ export function crearApp(deps: Dependencias): Express {
       base_datos: baseDatos,
       pasarela: pasarela.nombre,
       entradas: entradas.modo,
+      auth: 'validar-sesion',
+      broker: eventos.modo,
     });
-  });
+  };
+  app.get('/health', health);
+  app.get(`${config.prefijoGateway}/health`, health);
 
   // Documentación Swagger (BE1/BE3) y servicios consumidos (BE2)
   const openapiPropio = leerOpenApi('openapi.yaml');
@@ -58,7 +66,8 @@ export function crearApp(deps: Dependencias): Express {
   );
   app.use('/api-docs', swaggerUi.serveFiles(openapiPropio), swaggerUi.setup(openapiPropio, { customSiteTitle: 'Pagos - API' }));
 
-  app.use('/api/v1/pagos', crearRouterPagos(controlador, autenticar(config.jwtSecret, config.rolesPrivilegiados)));
+  const router = crearRouterPagos(controlador, autenticar(auth, config.rolesPrivilegiados));
+  for (const base of rutasPagos) app.use(base, router);
 
   app.use(rutaNoEncontrada);
   app.use(manejarErrores);

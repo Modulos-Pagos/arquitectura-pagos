@@ -1,8 +1,15 @@
 import type { Request, Response } from 'express';
 import { usuarioDe } from '../middlewares/autenticacion';
-import { validarCrearTransaccion, validarFiltrosListado, validarIdPago, validarReembolso } from './pago.dto';
+import {
+  validarCrearTransaccion,
+  validarDestinatario,
+  validarFiltrosListado,
+  validarIdPago,
+  validarReembolso,
+  formatearRut,
+} from './pago.dto';
 import { esPagoFormulario, type PagoService } from './pago.service';
-import type { Pago, Reembolso } from './pago.types';
+import type { Destinatario, Pago, Reembolso } from './pago.types';
 
 /**
  * Frontera HTTP: lee el request, valida con los DTOs, llama al servicio
@@ -17,6 +24,8 @@ export function aRespuestaPago(p: Pago) {
     id_pago: p.id_pago,
     id_reserva: p.id_reserva,
     id_usuario: p.id_usuario,
+    id_evento: p.id_evento,
+    nombre_codigo: p.nombre_codigo,
     estado_pago: p.estado_pago,
     metodo: esPagoFormulario(p) ? 'formulario' : 'checkout',
     monto: p.monto,
@@ -27,6 +36,11 @@ export function aRespuestaPago(p: Pago) {
     fecha_actualizacion: iso(p.fecha_actualizacion),
     fecha_expiracion: iso(p.fecha_expiracion),
   };
+}
+
+function aRespuestaDestinatario(d: Destinatario | null) {
+  if (!d) return null;
+  return { nombre: d.nombre, email: d.email, rut: formatearRut(d.rut), fecha_registro: iso(d.fecha_registro) };
 }
 
 function aRespuestaReembolso(r: Reembolso | null) {
@@ -43,13 +57,38 @@ function aRespuestaReembolso(r: Reembolso | null) {
 export class PagoController {
   constructor(private readonly servicio: PagoService) {}
 
+  /**
+   * GET /comprador/perfil — datos del comprador para prellenar la pantalla de pago.
+   * Contrato Auth v1.3: salen de la misma respuesta de validar-sesion (sin llamadas extra a Auth).
+   */
+  perfilComprador = async (req: Request, res: Response) => {
+    const usuario = usuarioDe(req);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ id_usuario: usuario.id_usuario, ...usuario.perfil, rol: usuario.rol });
+  };
+
+  /** PUT /{id_pago}/destinatario — la entrada es para otra persona. */
+  definirDestinatario = async (req: Request, res: Response) => {
+    const idPago = validarIdPago(req.params.id_pago);
+    const dto = validarDestinatario(req.body);
+    const destinatario = await this.servicio.definirDestinatario(idPago, dto, usuarioDe(req));
+    res.json({ id_pago: idPago, destinatario: aRespuestaDestinatario(destinatario) });
+  };
+
+  /** DELETE /{id_pago}/destinatario — la entrada vuelve a ser para el comprador. */
+  quitarDestinatario = async (req: Request, res: Response) => {
+    const idPago = validarIdPago(req.params.id_pago);
+    await this.servicio.quitarDestinatario(idPago, usuarioDe(req));
+    res.json({ id_pago: idPago, destinatario: null });
+  };
+
   /** POST /api/v1/pagos/transacciones */
   crear = async (req: Request, res: Response) => {
     const dto = validarCrearTransaccion(req.body);
     const { pago, creado, client_secret } = await this.servicio.crearTransaccion(
       dto,
       usuarioDe(req),
-      req.header('authorization'),
+      req.header('cookie'),
     );
     res.status(creado ? 201 : 200).json({
       id_pago: pago.id_pago,
@@ -67,14 +106,16 @@ export class PagoController {
   obtener = async (req: Request, res: Response) => {
     const idPago = validarIdPago(req.params.id_pago);
     const pago = await this.servicio.obtenerPago(idPago, usuarioDe(req));
-    res.json(aRespuestaPago(pago));
+    const destinatario = await this.servicio.obtenerDestinatario(idPago);
+    res.json({ ...aRespuestaPago(pago), destinatario: aRespuestaDestinatario(destinatario) });
   };
 
   /** GET /api/v1/pagos/{id_pago}/checkout — usado por el front de Pagos para cobrar un pago existente */
   checkout = async (req: Request, res: Response) => {
     const idPago = validarIdPago(req.params.id_pago);
     const { pago, client_secret } = await this.servicio.obtenerDatosCheckout(idPago, usuarioDe(req));
-    res.json({ ...aRespuestaPago(pago), client_secret });
+    const destinatario = await this.servicio.obtenerDestinatario(idPago);
+    res.json({ ...aRespuestaPago(pago), client_secret, destinatario: aRespuestaDestinatario(destinatario) });
   };
 
   /** GET /api/v1/pagos?id_usuario=&id_reserva=&estado=&pagina=&limite= */
@@ -107,7 +148,7 @@ export class PagoController {
     });
   };
 
-  /** DELETE /api/v1/pagos/{id_pago} (solo ADMIN; pagos RECHAZADOS o ANULADOS) */
+  /** DELETE /api/v1/pagos/{id_pago} (solo staff; pagos RECHAZADOS o ANULADOS) */
   eliminar = async (req: Request, res: Response) => {
     const idPago = validarIdPago(req.params.id_pago);
     const eliminado = await this.servicio.eliminarPago(idPago, usuarioDe(req));

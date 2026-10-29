@@ -1,12 +1,15 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { errores } from '../errores';
-import { JwtInvalidoError, verificarJwt } from '../utils/jwt';
+import type { AuthClient, SesionAuth } from '../integraciones/auth.client';
 
 export interface UsuarioAutenticado {
   id_usuario: string;
+  /** Rol vigente según Auth: usuario, organizador o staff. */
   rol: string;
-  /** true si el rol está en ROLES_PRIVILEGIADOS (ADMIN, SERVICIO, ...). */
+  /** true si el rol está en ROLES_PRIVILEGIADOS (por defecto staff). */
   privilegiado: boolean;
+  /** Perfil que entrega Auth en validar-sesion (solo para mostrar; no se guarda). */
+  perfil: Pick<SesionAuth, 'nombre_completo' | 'rut' | 'correo_electronico'>;
 }
 
 declare global {
@@ -19,39 +22,22 @@ declare global {
 }
 
 /**
- * Valida el token JWT emitido por Auth (header Authorization: Bearer <token>).
- * Compatibilidad con el contrato de Entradas v1.0: si no viene el header, se acepta
- * el mismo JWT en el campo `token_sesion` del body (se valida igual que el header).
- * Del token se obtiene el id del usuario (claim id_usuario, sub o id) y su rol.
+ * Contrato Auth ↔ Pagos v1.3: en CADA petición protegida se valida la sesión con Auth
+ * (GET /internal/validar-sesion), reenviando intacto el header Cookie (jwt=...) que llegó
+ * desde el navegador o desde el backend de Entradas. La identidad y el rol salen de Auth.
+ * No se aceptan Authorization: Bearer ni token_sesion.
  */
-export function autenticar(jwtSecret: string, rolesPrivilegiados: string[]): RequestHandler {
-  return (req: Request, _res: Response, next: NextFunction) => {
-    const header = req.header('authorization') ?? '';
-    let [esquema, token] = header.split(' ');
-    const tokenBody = (req.body as { token_sesion?: unknown } | undefined)?.token_sesion;
-    if (!header && typeof tokenBody === 'string' && tokenBody.trim() !== '') {
-      esquema = 'Bearer';
-      token = tokenBody.trim();
-      // Se normaliza al header para que la invocación a Entradas reenvíe el mismo token.
-      req.headers.authorization = `Bearer ${token}`;
-    }
-    if (esquema?.toLowerCase() !== 'bearer' || !token) {
-      return next(errores.noAutenticado());
-    }
-    try {
-      const payload = verificarJwt(token, jwtSecret);
-      const id = payload.id_usuario ?? payload.sub ?? payload.id;
-      if ((typeof id !== 'string' && typeof id !== 'number') || String(id).trim() === '') {
-        return next(errores.noAutenticado('El token no contiene el id del usuario'));
-      }
-      const rolCrudo = payload.rol ?? payload.role ?? 'COMPRADOR';
-      const rol = String(rolCrudo).toUpperCase();
-      req.usuario = { id_usuario: String(id), rol, privilegiado: rolesPrivilegiados.includes(rol) };
-      return next();
-    } catch (error) {
-      if (error instanceof JwtInvalidoError) return next(errores.noAutenticado(error.message));
-      return next(error);
-    }
+export function autenticar(auth: AuthClient, rolesPrivilegiados: string[]): RequestHandler {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    const sesion = await auth.validarSesion(req.header('cookie'));
+    const rol = sesion.rol.toLowerCase();
+    req.usuario = {
+      id_usuario: sesion.id_usuario,
+      rol,
+      privilegiado: rolesPrivilegiados.includes(rol),
+      perfil: { nombre_completo: sesion.nombre_completo, rut: sesion.rut, correo_electronico: sesion.correo_electronico },
+    };
+    next();
   };
 }
 

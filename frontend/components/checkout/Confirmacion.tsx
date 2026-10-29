@@ -3,6 +3,7 @@
 import { CheckCircle2, Clock, XCircle } from 'lucide-react';
 import type { EstadoPago, Pago } from '@/lib/api';
 import { formatoCLP } from '@/lib/pedido';
+import { formatoRut } from '@/lib/destinatario';
 
 const TEXTOS: Record<EstadoPago, { titulo: string; detalle: string }> = {
   APROBADO: { titulo: '¡Pago confirmado!', detalle: 'Tu compra fue procesada. Recibirás tus entradas con código QR.' },
@@ -25,7 +26,10 @@ const TONO: Record<EstadoPago, { icono: string; badge: string }> = {
 };
 
 export default function Confirmacion({ pago }: { pago: Pago }) {
-  const texto = TEXTOS[pago.estado_pago];
+  const texto =
+    pago.estado_pago === 'APROBADO' && pago.destinatario
+      ? { ...TEXTOS.APROBADO, detalle: `Tu compra fue procesada. ${pago.destinatario.nombre} recibirá la entrada con código QR en ${pago.destinatario.email}.` }
+      : TEXTOS[pago.estado_pago];
   const tono = TONO[pago.estado_pago];
   const Icono = pago.estado_pago === 'APROBADO' ? CheckCircle2 : pago.estado_pago === 'PENDIENTE' ? Clock : XCircle;
 
@@ -36,6 +40,11 @@ export default function Confirmacion({ pago }: { pago: Pago }) {
     ['Fecha', new Date(pago.fecha_creacion).toLocaleString('es-CL')],
   ];
   if (pago.motivo_rechazo) filas.push(['Motivo', pago.motivo_rechazo]);
+  if (pago.destinatario) {
+    filas.push(['Entrada para', pago.destinatario.nombre]);
+    filas.push(['Se enviará a', pago.destinatario.email]);
+    if (pago.destinatario.rut) filas.push(['RUT', formatoRut(pago.destinatario.rut)]);
+  }
 
   return (
     <section className="bg-white border border-ticket-border rounded-xl shadow-tarjeta p-8 flex flex-col items-center text-center gap-4">

@@ -3,6 +3,8 @@ erDiagram
         uuid id_pago PK "NOT NULL"
         varchar_64 id_reserva UK "NOT NULL"
         varchar_64 id_usuario "NOT NULL"
+        varchar_64 id_evento "NULL"
+        varchar_50 nombre_codigo "NULL"
         integer monto "NOT NULL"
         char_3 moneda "NOT NULL"
         varchar_20 estado_pago "NOT NULL"
@@ -13,6 +15,13 @@ erDiagram
         timestamptz fecha_expiracion "NULL"
         timestamptz fecha_creacion "NOT NULL"
         timestamptz fecha_actualizacion "NOT NULL"
+    }
+    destinatarios_pago {
+        uuid id_pago FK,PK "NOT NULL"
+        varchar_120 nombre "NOT NULL"
+        varchar_254 email "NOT NULL"
+        varchar_12 rut "NULL"
+        timestamptz fecha_registro "NOT NULL"
     }
     eventos_webhook_stripe {
         varchar_255 id_evento_stripe PK "NOT NULL"
@@ -30,5 +39,6 @@ erDiagram
         varchar_255 stripe_refund_id UK "NULL"
         timestamptz fecha_creacion "NOT NULL"
     }
+    pagos ||--o| destinatarios_pago : "id_pago"
     pagos |o--o{ eventos_webhook_stripe : "id_pago"
     pagos ||--o{ reembolsos : "id_pago"

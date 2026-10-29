@@ -1,5 +1,15 @@
 import type { Pool, PoolClient } from 'pg';
-import type { EstadoPago, EstadoReembolso, FiltrosListado, NuevoPago, OrigenCambio, Pago, Reembolso } from './pago.types';
+import type {
+  Destinatario,
+  EstadoPago,
+  EstadoReembolso,
+  FiltrosListado,
+  NuevoDestinatario,
+  NuevoPago,
+  OrigenCambio,
+  Pago,
+  Reembolso,
+} from './pago.types';
 
 /**
  * Acceso a datos del módulo. Toda la SQL del microservicio vive aquí
@@ -21,6 +31,8 @@ function aPago(f: Fila): Pago {
     id_pago: String(f.id_pago),
     id_reserva: String(f.id_reserva),
     id_usuario: String(f.id_usuario),
+    id_evento: (f.id_evento as string | null) ?? null,
+    nombre_codigo: (f.nombre_codigo as string | null) ?? null,
     monto: Number(f.monto),
     moneda: String(f.moneda),
     estado_pago: f.estado_pago as EstadoPago,
@@ -43,6 +55,16 @@ function aReembolso(f: Fila): Reembolso {
     estado_reembolso: f.estado_reembolso as EstadoReembolso,
     stripe_refund_id: (f.stripe_refund_id as string | null) ?? null,
     fecha_creacion: fecha(f.fecha_creacion),
+  };
+}
+
+function aDestinatario(f: Fila): Destinatario {
+  return {
+    id_pago: String(f.id_pago),
+    nombre: String(f.nombre),
+    email: String(f.email),
+    rut: (f.rut as string | null) ?? null,
+    fecha_registro: fecha(f.fecha_registro),
   };
 }
 
@@ -79,9 +101,9 @@ export class PagoRepository {
   /** Inserta el pago en estado PENDIENTE. */
   async crear(nuevo: NuevoPago): Promise<Pago> {
     const { rows } = await this.pool.query(
-      `INSERT INTO pagos (id_pago, id_reserva, id_usuario, monto, estado_pago,
+      `INSERT INTO pagos (id_pago, id_reserva, id_usuario, id_evento, nombre_codigo, monto, estado_pago,
                           stripe_session_id, stripe_payment_intent_id, url_checkout, fecha_expiracion)
-       VALUES ($1, $2, $3, $4, 'PENDIENTE', $5, $6, $7, $8)
+       VALUES ($1, $2, $3, $9, $10, $4, 'PENDIENTE', $5, $6, $7, $8)
        RETURNING *`,
       [
         nuevo.id_pago,
@@ -92,6 +114,8 @@ export class PagoRepository {
         nuevo.stripe_payment_intent_id,
         nuevo.url_checkout,
         nuevo.fecha_expiracion,
+        nuevo.id_evento,
+        nuevo.nombre_codigo,
       ],
     );
     return aPago(rows[0]);
@@ -189,6 +213,40 @@ export class PagoRepository {
       [idPago],
     );
     return rows.map(aReembolso);
+  }
+
+  async buscarDestinatario(idPago: string): Promise<Destinatario | null> {
+    const { rows } = await this.pool.query('SELECT * FROM destinatarios_pago WHERE id_pago = $1', [idPago]);
+    return rows[0] ? aDestinatario(rows[0]) : null;
+  }
+
+  /**
+   * Guarda (o reemplaza) el destinatario de un pago, solo si el pago sigue PENDIENTE.
+   * Devuelve null si el pago no existe o ya no está PENDIENTE.
+   */
+  async guardarDestinatario(idPago: string, d: NuevoDestinatario): Promise<Destinatario | null> {
+    const { rows } = await this.pool.query(
+      `INSERT INTO destinatarios_pago (id_pago, nombre, email, rut)
+       SELECT id_pago, $2, $3, $4 FROM pagos WHERE id_pago = $1 AND estado_pago = 'PENDIENTE'
+       ON CONFLICT (id_pago) DO UPDATE SET
+         nombre = EXCLUDED.nombre,
+         email = EXCLUDED.email,
+         rut = EXCLUDED.rut,
+         fecha_registro = now()
+       RETURNING *`,
+      [idPago, d.nombre, d.email, d.rut],
+    );
+    return rows[0] ? aDestinatario(rows[0]) : null;
+  }
+
+  /** Quita el destinatario (la entrada vuelve a ser para el comprador). Solo con el pago PENDIENTE. */
+  async eliminarDestinatario(idPago: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      `DELETE FROM destinatarios_pago d USING pagos p
+       WHERE d.id_pago = $1 AND p.id_pago = d.id_pago AND p.estado_pago = 'PENDIENTE'`,
+      [idPago],
+    );
+    return (rowCount ?? 0) > 0;
   }
 
   async eventoWebhookExiste(idEvento: string): Promise<boolean> {

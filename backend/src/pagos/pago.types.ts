@@ -11,6 +11,10 @@ export interface Pago {
   id_pago: string;
   id_reserva: string;
   id_usuario: string;
+  /** Referencia al evento (sin FK); la envía Entradas. */
+  id_evento: string | null;
+  /** Código de descuento de Promociones aplicado a la compra (sin FK); null si no hubo. */
+  nombre_codigo: string | null;
   monto: number;
   moneda: string;
   estado_pago: EstadoPago;
@@ -27,6 +31,8 @@ export interface NuevoPago {
   id_pago: string;
   id_reserva: string;
   id_usuario: string;
+  id_evento: string | null;
+  nombre_codigo: string | null;
   monto: number;
   stripe_session_id: string | null;
   stripe_payment_intent_id: string | null;
@@ -43,6 +49,21 @@ export interface Reembolso {
   estado_reembolso: EstadoReembolso;
   stripe_refund_id: string | null;
   fecha_creacion: Date;
+}
+
+/** Fila de la tabla `destinatarios_pago`: a quién se le emite la entrada si el comprador compra para otra persona. */
+export interface Destinatario {
+  id_pago: string;
+  nombre: string;
+  email: string;
+  rut: string | null;
+  fecha_registro: Date;
+}
+
+export interface NuevoDestinatario {
+  nombre: string;
+  email: string;
+  rut: string | null;
 }
 
 export interface FiltrosListado {

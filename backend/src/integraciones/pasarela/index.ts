@@ -9,8 +9,9 @@ export function crearPasarela(config: Config): PasarelaPago {
       secretKey: config.stripeSecretKey,
       webhookSecret: config.stripeWebhookSecret,
       timeoutMs: config.stripeTimeoutMs,
-      urlExito: `${config.frontendUrl}/pagos/exito`,
-      urlCancelacion: `${config.frontendUrl}/pagos/cancelado`,
+      // Stripe Checkout vuelve a la misma página de pago (?id_pago=...), que muestra el resultado.
+      urlExito: `${config.frontendUrl}/`,
+      urlCancelacion: `${config.frontendUrl}/`,
       emailPorDefecto: config.checkoutEmailDefecto,
     });
   }
