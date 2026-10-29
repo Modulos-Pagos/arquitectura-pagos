@@ -50,7 +50,11 @@ services:
       ENTRADAS_BASE_URL: ${ENTRADAS_URL_DOCKER:-http://entradas-service:3000}
       # Auth escucha en el 10000 (su Dockerfile, su main.ts y el ejemplo de su contrato general v1.1)
       AUTH_BASE_URL: ${AUTH_URL_DOCKER:-http://auth-service:10000}
-      # Con la plataforma: Auth real (contrato v1.3, siempre por HTTP) y CORS resuelto por el Gateway.
+      # Con la plataforma, por defecto se verifica cada reserva en Entradas y se publican los eventos pago.*
+      # en RabbitMQ (para cambiarlo: ENTRADAS_MODO_DOCKER / BROKER_MODO_DOCKER en el .env).
+      ENTRADAS_MODO: ${ENTRADAS_MODO_DOCKER:-http}
+      BROKER_MODO: ${BROKER_MODO_DOCKER:-rabbitmq}
+      # Con la plataforma: Auth real (contrato v1.4, siempre por HTTP) y CORS resuelto por el Gateway.
       CORS_ORIGIN: ${CORS_ORIGIN_DOCKER:-none}
     ports:
       - "${PAGOS_PUERTO_HOST:-3004}:3000"

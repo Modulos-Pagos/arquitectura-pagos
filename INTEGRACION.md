@@ -64,14 +64,14 @@ npm run auth:simulado
 **5. Pagos** (`arquitectura-pagos\backend`): copiar `.env.example` a `.env` y dejar:
 
 ```env
-BROKER_MODO=rabbitmq
 FRONTEND_URL=http://localhost:3000/pagos
-AUTH_INTERNAL_API_KEY=<la clave de Auth, o clave-dev-local con el simulado>
+# La misma clave interna (x-api-key) configurada en auth-service y entradas-service; con el Auth simulado, clave-dev-local
+AUTH_INTERNAL_API_KEY=<clave compartida del ambiente>
 # Solo si se usa el Auth simulado del paso 4 (corre fuera de Docker):
 AUTH_URL_DOCKER=http://host.docker.internal:3001
-# Cuando Entradas esté levantado en la red común:
-ENTRADAS_MODO=http
 ```
+
+En Docker, `docker-compose.yml` ya deja `ENTRADAS_MODO=http` (valida cada reserva en `http://entradas-service:3000/api/entradas/reservas/{id_reserva}`) y `BROKER_MODO=rabbitmq` (publica `pago.*` en `ticketu.events`). Si Entradas o RabbitMQ no están levantados, se pueden apagar con `ENTRADAS_MODO_DOCKER=mock` o `BROKER_MODO_DOCKER=mock` en el `.env`.
 
 ```powershell
 docker compose up -d --build
