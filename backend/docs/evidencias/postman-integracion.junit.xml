@@ -1,138 +1,138 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="Pagos TITEC — Pruebas de integración" tests="37" time="0.247">
-  <testsuite name="0. Operación / Health check" id="18391d97-849c-45ed-9861-204eb0b20bd7" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.030">
-    <testcase name="200 OK" time="0.030" classname="0OperacionHealthCheck"/>
-    <testcase name="Servicio y BD operativos" time="0.030" classname="0OperacionHealthCheck"/>
+<testsuites name="Pagos TITEC — Pruebas de integración" tests="37" time="0.702">
+  <testsuite name="0. Operación / Health check" id="58e1fe7b-a549-4a2f-be37-3dae077f1598" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.037">
+    <testcase name="200 OK" time="0.037" classname="0OperacionHealthCheck"/>
+    <testcase name="Servicio y BD operativos" time="0.037" classname="0OperacionHealthCheck"/>
   </testsuite>
-  <testsuite name="1. Entradas → Crear transacción / Crear pago nuevo (201)" id="ddfe5844-302e-4f11-9a60-f024252b6932" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.016">
-    <testcase name="201 Created" time="0.016" classname="1EntradasCrearTransaccionCrearPagoNuevo201"/>
-    <testcase name="Pago PENDIENTE con url de checkout" time="0.016" classname="1EntradasCrearTransaccionCrearPagoNuevo201"/>
+  <testsuite name="1. Entradas → Crear transacción / Crear pago nuevo (201)" id="7838509d-6ba8-44f8-8e70-966f9f4b1bca" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.020">
+    <testcase name="201 Created" time="0.020" classname="1EntradasCrearTransaccionCrearPagoNuevo201"/>
+    <testcase name="Pago PENDIENTE con url de checkout" time="0.020" classname="1EntradasCrearTransaccionCrearPagoNuevo201"/>
   </testsuite>
-  <testsuite name="1. Entradas → Crear transacción / Reintento idempotente (200, mismo pago)" id="e9acc405-cc5e-46e7-a463-30797dd82776" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.006">
-    <testcase name="200 OK (no 201)" time="0.006" classname="1EntradasCrearTransaccionReintentoIdempotente200MismoPago"/>
-    <testcase name="Devuelve el mismo id_pago" time="0.006" classname="1EntradasCrearTransaccionReintentoIdempotente200MismoPago"/>
+  <testsuite name="1. Entradas → Crear transacción / Reintento idempotente (200, mismo pago)" id="db76cbc1-1413-4ca1-9b0d-e45dc9492826" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.023">
+    <testcase name="200 OK (no 201)" time="0.023" classname="1EntradasCrearTransaccionReintentoIdempotente200MismoPago"/>
+    <testcase name="Devuelve el mismo id_pago" time="0.023" classname="1EntradasCrearTransaccionReintentoIdempotente200MismoPago"/>
   </testsuite>
-  <testsuite name="1. Entradas → Crear transacción / Misma reserva con otro monto (409)" id="155f334d-9597-41ca-8602-4a073023ab5b" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.007">
-    <testcase name="409 Conflict" time="0.007" classname="1EntradasCrearTransaccionMismaReservaConOtroMonto409"/>
-    <testcase name="Código CONFLICTO_IDEMPOTENCIA" time="0.007" classname="1EntradasCrearTransaccionMismaReservaConOtroMonto409"/>
+  <testsuite name="1. Entradas → Crear transacción / Misma reserva con otro monto (409)" id="4a8be805-7a4c-4e49-bce7-8c6489902824" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.020">
+    <testcase name="409 Conflict" time="0.020" classname="1EntradasCrearTransaccionMismaReservaConOtroMonto409"/>
+    <testcase name="Código CONFLICTO_IDEMPOTENCIA" time="0.020" classname="1EntradasCrearTransaccionMismaReservaConOtroMonto409"/>
   </testsuite>
-  <testsuite name="1. Entradas → Crear transacción / Datos inválidos (400)" id="5feb8ffe-ba3e-4cf4-90e1-56697df1c7d6" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.007">
-    <testcase name="400 Bad Request" time="0.007" classname="1EntradasCrearTransaccionDatosInvalidos400"/>
-    <testcase name="Detalla los errores" time="0.007" classname="1EntradasCrearTransaccionDatosInvalidos400"/>
+  <testsuite name="1. Entradas → Crear transacción / Datos inválidos (400)" id="4f458056-7d48-453f-a1df-5714233d9deb" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.020">
+    <testcase name="400 Bad Request" time="0.020" classname="1EntradasCrearTransaccionDatosInvalidos400"/>
+    <testcase name="Detalla los errores" time="0.020" classname="1EntradasCrearTransaccionDatosInvalidos400"/>
   </testsuite>
-  <testsuite name="1. Entradas → Crear transacción / Sin cookie de sesión (401)" id="0999f845-c830-417e-a52a-2a0b5358b8c4" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.004">
-    <testcase name="401 Unauthorized" time="0.004" classname="1EntradasCrearTransaccionSinCookieDeSesion401"/>
-    <testcase name="Código NO_AUTENTICADO" time="0.004" classname="1EntradasCrearTransaccionSinCookieDeSesion401"/>
+  <testsuite name="1. Entradas → Crear transacción / Sin cookie de sesión (401)" id="7ffa5a5e-094f-4693-ae45-bc22e1877380" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.018">
+    <testcase name="401 Unauthorized" time="0.018" classname="1EntradasCrearTransaccionSinCookieDeSesion401"/>
+    <testcase name="Código NO_AUTENTICADO" time="0.018" classname="1EntradasCrearTransaccionSinCookieDeSesion401"/>
   </testsuite>
-  <testsuite name="1. Entradas → Crear transacción / Authorization: Bearer ya no se acepta (401)" id="fd2caf1f-0670-4868-821e-d6297164dc21" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.004">
-    <testcase name="401 Unauthorized" time="0.004" classname="1EntradasCrearTransaccionAuthorizationBearerYaNoSeAcepta401"/>
-    <testcase name="Código NO_AUTENTICADO" time="0.004" classname="1EntradasCrearTransaccionAuthorizationBearerYaNoSeAcepta401"/>
+  <testsuite name="1. Entradas → Crear transacción / Authorization: Bearer ya no se acepta (401)" id="c3a848aa-9ced-4535-94cb-6051412d9500" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.019">
+    <testcase name="401 Unauthorized" time="0.019" classname="1EntradasCrearTransaccionAuthorizationBearerYaNoSeAcepta401"/>
+    <testcase name="Código NO_AUTENTICADO" time="0.019" classname="1EntradasCrearTransaccionAuthorizationBearerYaNoSeAcepta401"/>
   </testsuite>
-  <testsuite name="1. Entradas → Crear transacción / Request de Entradas v2.3: cookie jwt del comprador reenviada, sin id_evento (201)" id="71e27118-3d77-4903-8bbc-3f485fe88a76" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.007">
-    <testcase name="201 Created con el request tal como lo envía Entradas" time="0.007" classname="1EntradasCrearTransaccionRequestDeEntradasV23CookieJwtDelCompradorReenviadaSinIdEvento201"/>
-    <testcase name="Devuelve id_pago, estado_pago y fecha_creacion (contrato Entradas)" time="0.007" classname="1EntradasCrearTransaccionRequestDeEntradasV23CookieJwtDelCompradorReenviadaSinIdEvento201"/>
+  <testsuite name="1. Entradas → Crear transacción / Request de Entradas v2.3: cookie jwt del comprador reenviada, sin id_evento (201)" id="6a8c5bd5-340e-4042-9690-4fc910ef1f91" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.026">
+    <testcase name="201 Created con el request tal como lo envía Entradas" time="0.026" classname="1EntradasCrearTransaccionRequestDeEntradasV23CookieJwtDelCompradorReenviadaSinIdEvento201"/>
+    <testcase name="Devuelve id_pago, estado_pago y fecha_creacion (contrato Entradas)" time="0.026" classname="1EntradasCrearTransaccionRequestDeEntradasV23CookieJwtDelCompradorReenviadaSinIdEvento201"/>
   </testsuite>
-  <testsuite name="2. Entradas → Polling de estado / Consultar pago PENDIENTE (200)" id="1fb6f568-b05c-4986-bef2-5badfbd24a5d" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.007">
+  <testsuite name="2. Entradas → Polling de estado / Consultar pago PENDIENTE (200)" id="0787513e-a520-40e4-b561-21a663ced6db" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.007">
     <testcase name="200 OK" time="0.007" classname="2EntradasPollingDeEstadoConsultarPagoPendiente200"/>
     <testcase name="Estado PENDIENTE y datos de la orden" time="0.007" classname="2EntradasPollingDeEstadoConsultarPagoPendiente200"/>
   </testsuite>
-  <testsuite name="2. Entradas → Polling de estado / Otro usuario no puede ver el pago (403)" id="49feedde-6d01-462d-bd52-6a1745687f9d" timestamp="2026-10-29T01:33:29.332Z" tests="1" failures="0" errors="0" time="0.005">
-    <testcase name="403 Forbidden" time="0.005" classname="2EntradasPollingDeEstadoOtroUsuarioNoPuedeVerElPago403"/>
+  <testsuite name="2. Entradas → Polling de estado / Otro usuario no puede ver el pago (403)" id="7a0c2f0b-8436-49cc-9da7-47c85e241ff2" timestamp="2026-10-29T23:58:43.127Z" tests="1" failures="0" errors="0" time="0.020">
+    <testcase name="403 Forbidden" time="0.020" classname="2EntradasPollingDeEstadoOtroUsuarioNoPuedeVerElPago403"/>
   </testsuite>
-  <testsuite name="2. Entradas → Polling de estado / Usuario staff consulta un pago ajeno (200)" id="6364dfaf-153b-49a0-831a-04d72fc81b53" timestamp="2026-10-29T01:33:29.332Z" tests="1" failures="0" errors="0" time="0.005">
-    <testcase name="200 OK" time="0.005" classname="2EntradasPollingDeEstadoUsuarioStaffConsultaUnPagoAjeno200"/>
+  <testsuite name="2. Entradas → Polling de estado / Usuario staff consulta un pago ajeno (200)" id="2c70759f-4b6d-4477-a8bc-b6b8daeca7b9" timestamp="2026-10-29T23:58:43.127Z" tests="1" failures="0" errors="0" time="0.023">
+    <testcase name="200 OK" time="0.023" classname="2EntradasPollingDeEstadoUsuarioStaffConsultaUnPagoAjeno200"/>
   </testsuite>
-  <testsuite name="2. Entradas → Polling de estado / Pago inexistente (404)" id="e0ee99ba-2749-4585-bb28-c6b6461186d3" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.004">
-    <testcase name="404 Not Found" time="0.004" classname="2EntradasPollingDeEstadoPagoInexistente404"/>
-    <testcase name="Código PAGO_NO_ENCONTRADO" time="0.004" classname="2EntradasPollingDeEstadoPagoInexistente404"/>
+  <testsuite name="2. Entradas → Polling de estado / Pago inexistente (404)" id="15ff9a09-1f1e-4dfa-bcc8-70e93070a0cc" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.023">
+    <testcase name="404 Not Found" time="0.023" classname="2EntradasPollingDeEstadoPagoInexistente404"/>
+    <testcase name="Código PAGO_NO_ENCONTRADO" time="0.023" classname="2EntradasPollingDeEstadoPagoInexistente404"/>
   </testsuite>
-  <testsuite name="2. Entradas → Polling de estado / Id mal formado (400)" id="41646cf9-2c1e-4f11-b3fd-e4b78325fe39" timestamp="2026-10-29T01:33:29.332Z" tests="1" failures="0" errors="0" time="0.003">
-    <testcase name="400 Bad Request" time="0.003" classname="2EntradasPollingDeEstadoIdMalFormado400"/>
+  <testsuite name="2. Entradas → Polling de estado / Id mal formado (400)" id="354a43ab-8782-4fc6-a8c3-86ed84b7fb54" timestamp="2026-10-29T23:58:43.127Z" tests="1" failures="0" errors="0" time="0.017">
+    <testcase name="400 Bad Request" time="0.017" classname="2EntradasPollingDeEstadoIdMalFormado400"/>
   </testsuite>
-  <testsuite name="3. Stripe → Webhook (simulado con PASARELA=mock) / Pago completado → APROBADO" id="c4f5238b-b9f5-4c8a-82ca-78cf39d99230" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.011">
-    <testcase name="200 OK" time="0.011" classname="3StripeWebhookSimuladoConPasarelaMockPagoCompletadoAprobado"/>
-    <testcase name="Pago aprobado" time="0.011" classname="3StripeWebhookSimuladoConPasarelaMockPagoCompletadoAprobado"/>
+  <testsuite name="3. Stripe → Webhook (simulado con PASARELA=mock) / Pago completado → APROBADO" id="cc6b7a95-5c9f-45e2-adea-e10f73d6e7b7" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.013">
+    <testcase name="200 OK" time="0.013" classname="3StripeWebhookSimuladoConPasarelaMockPagoCompletadoAprobado"/>
+    <testcase name="Pago aprobado" time="0.013" classname="3StripeWebhookSimuladoConPasarelaMockPagoCompletadoAprobado"/>
   </testsuite>
-  <testsuite name="3. Stripe → Webhook (simulado con PASARELA=mock) / Evento repetido por Stripe (idempotente)" id="739a60d8-e417-4fa9-ac0c-72225f6de1a3" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.003">
-    <testcase name="200 OK" time="0.003" classname="3StripeWebhookSimuladoConPasarelaMockEventoRepetidoPorStripeIdempotente"/>
-    <testcase name="Marcado como duplicado" time="0.003" classname="3StripeWebhookSimuladoConPasarelaMockEventoRepetidoPorStripeIdempotente"/>
+  <testsuite name="3. Stripe → Webhook (simulado con PASARELA=mock) / Evento repetido por Stripe (idempotente)" id="6be8022b-b64b-407c-9a0d-b57959643557" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.005">
+    <testcase name="200 OK" time="0.005" classname="3StripeWebhookSimuladoConPasarelaMockEventoRepetidoPorStripeIdempotente"/>
+    <testcase name="Marcado como duplicado" time="0.005" classname="3StripeWebhookSimuladoConPasarelaMockEventoRepetidoPorStripeIdempotente"/>
   </testsuite>
-  <testsuite name="3. Stripe → Webhook (simulado con PASARELA=mock) / Polling después del pago → APROBADO" id="ae980798-7bca-4246-aadb-e6c6619a2bbb" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.004">
-    <testcase name="200 OK" time="0.004" classname="3StripeWebhookSimuladoConPasarelaMockPollingDespuesDelPagoAprobado"/>
-    <testcase name="Entradas ve el pago APROBADO" time="0.004" classname="3StripeWebhookSimuladoConPasarelaMockPollingDespuesDelPagoAprobado"/>
+  <testsuite name="3. Stripe → Webhook (simulado con PASARELA=mock) / Polling después del pago → APROBADO" id="b5298eb4-c168-42f6-9b8c-8b1e91e528f1" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.022">
+    <testcase name="200 OK" time="0.022" classname="3StripeWebhookSimuladoConPasarelaMockPollingDespuesDelPagoAprobado"/>
+    <testcase name="Entradas ve el pago APROBADO" time="0.022" classname="3StripeWebhookSimuladoConPasarelaMockPollingDespuesDelPagoAprobado"/>
   </testsuite>
-  <testsuite name="3. Stripe → Webhook (simulado con PASARELA=mock) / Cuerpo inválido (400)" id="de60950c-017d-433e-a3f2-1a53b5504bcb" timestamp="2026-10-29T01:33:29.332Z" tests="1" failures="0" errors="0" time="0.002">
-    <testcase name="400 Bad Request" time="0.002" classname="3StripeWebhookSimuladoConPasarelaMockCuerpoInvalido400"/>
+  <testsuite name="3. Stripe → Webhook (simulado con PASARELA=mock) / Cuerpo inválido (400)" id="920dc901-7f23-4e09-8f14-53b209def5d2" timestamp="2026-10-29T23:58:43.127Z" tests="1" failures="0" errors="0" time="0.003">
+    <testcase name="400 Bad Request" time="0.003" classname="3StripeWebhookSimuladoConPasarelaMockCuerpoInvalido400"/>
   </testsuite>
-  <testsuite name="4. Promociones → Listado de pagos / Pagos APROBADOS de un usuario (rol staff)" id="0707a56f-e4d0-4fa6-80fd-f1d6fae9c4ba" timestamp="2026-10-29T01:33:29.332Z" tests="3" failures="0" errors="0" time="0.012">
-    <testcase name="200 OK" time="0.012" classname="4PromocionesListadoDePagosPagosAprobadosDeUnUsuarioRolStaff"/>
-    <testcase name="Incluye el id_pago aprobado" time="0.012" classname="4PromocionesListadoDePagosPagosAprobadosDeUnUsuarioRolStaff"/>
-    <testcase name="Solo pagos APROBADOS" time="0.012" classname="4PromocionesListadoDePagosPagosAprobadosDeUnUsuarioRolStaff"/>
+  <testsuite name="4. Promociones → Listado de pagos / Pagos APROBADOS de un usuario (rol staff)" id="c21d12dd-14cf-42c9-b5ff-941d151f5d58" timestamp="2026-10-29T23:58:43.127Z" tests="3" failures="0" errors="0" time="0.023">
+    <testcase name="200 OK" time="0.023" classname="4PromocionesListadoDePagosPagosAprobadosDeUnUsuarioRolStaff"/>
+    <testcase name="Incluye el id_pago aprobado" time="0.023" classname="4PromocionesListadoDePagosPagosAprobadosDeUnUsuarioRolStaff"/>
+    <testcase name="Solo pagos APROBADOS" time="0.023" classname="4PromocionesListadoDePagosPagosAprobadosDeUnUsuarioRolStaff"/>
   </testsuite>
-  <testsuite name="4. Promociones → Listado de pagos / Comprador no puede listar pagos ajenos (403)" id="5dbcb2ab-0161-453e-a8f0-5bfc4b53e7ab" timestamp="2026-10-29T01:33:29.332Z" tests="1" failures="0" errors="0" time="0.004">
-    <testcase name="403 Forbidden" time="0.004" classname="4PromocionesListadoDePagosCompradorNoPuedeListarPagosAjenos403"/>
+  <testsuite name="4. Promociones → Listado de pagos / Comprador no puede listar pagos ajenos (403)" id="9c389faa-056f-45f9-a560-7e32fe932788" timestamp="2026-10-29T23:58:43.127Z" tests="1" failures="0" errors="0" time="0.017">
+    <testcase name="403 Forbidden" time="0.017" classname="4PromocionesListadoDePagosCompradorNoPuedeListarPagosAjenos403"/>
   </testsuite>
-  <testsuite name="4. Promociones → Listado de pagos / Filtro de estado inválido (400)" id="113bf0ba-730f-4ea2-b9ff-31af2c01825d" timestamp="2026-10-29T01:33:29.332Z" tests="1" failures="0" errors="0" time="0.004">
-    <testcase name="400 Bad Request" time="0.004" classname="4PromocionesListadoDePagosFiltroDeEstadoInvalido400"/>
+  <testsuite name="4. Promociones → Listado de pagos / Filtro de estado inválido (400)" id="4f3502c3-9583-477d-a690-1e9c2a3cbf50" timestamp="2026-10-29T23:58:43.127Z" tests="1" failures="0" errors="0" time="0.006">
+    <testcase name="400 Bad Request" time="0.006" classname="4PromocionesListadoDePagosFiltroDeEstadoInvalido400"/>
   </testsuite>
-  <testsuite name="5. Entradas → Reembolso / anulación / Reembolsar pago APROBADO → REEMBOLSADO" id="19350d6d-b186-4b2c-b034-27565e606799" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.008">
-    <testcase name="200 OK" time="0.008" classname="5EntradasReembolsoAnulacionReembolsarPagoAprobadoReembolsado"/>
-    <testcase name="Pago reembolsado por el total" time="0.008" classname="5EntradasReembolsoAnulacionReembolsarPagoAprobadoReembolsado"/>
+  <testsuite name="5. Entradas → Reembolso / anulación / Reembolsar pago APROBADO → REEMBOLSADO" id="aa981815-8daa-4e46-bfef-42d92d00ba95" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.025">
+    <testcase name="200 OK" time="0.025" classname="5EntradasReembolsoAnulacionReembolsarPagoAprobadoReembolsado"/>
+    <testcase name="Pago reembolsado por el total" time="0.025" classname="5EntradasReembolsoAnulacionReembolsarPagoAprobadoReembolsado"/>
   </testsuite>
-  <testsuite name="5. Entradas → Reembolso / anulación / Reintento de reembolso (idempotente)" id="da32b7a6-04a4-4d1b-a707-f18a9f305840" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.006">
-    <testcase name="200 OK" time="0.006" classname="5EntradasReembolsoAnulacionReintentoDeReembolsoIdempotente"/>
-    <testcase name="ya_procesado = true" time="0.006" classname="5EntradasReembolsoAnulacionReintentoDeReembolsoIdempotente"/>
+  <testsuite name="5. Entradas → Reembolso / anulación / Reintento de reembolso (idempotente)" id="bfcb6668-0472-4bf6-8026-6ba14b171f02" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.022">
+    <testcase name="200 OK" time="0.022" classname="5EntradasReembolsoAnulacionReintentoDeReembolsoIdempotente"/>
+    <testcase name="ya_procesado = true" time="0.022" classname="5EntradasReembolsoAnulacionReintentoDeReembolsoIdempotente"/>
   </testsuite>
-  <testsuite name="5. Entradas → Reembolso / anulación / Crear segundo pago (para anular)" id="5f79b5c2-5eb8-4ace-9655-ed071634f491" timestamp="2026-10-29T01:33:29.332Z" tests="1" failures="0" errors="0" time="0.014">
-    <testcase name="201 Created" time="0.014" classname="5EntradasReembolsoAnulacionCrearSegundoPagoParaAnular"/>
+  <testsuite name="5. Entradas → Reembolso / anulación / Crear segundo pago (para anular)" id="b56f2e47-c1de-46ab-87dc-37be073c6645" timestamp="2026-10-29T23:58:43.127Z" tests="1" failures="0" errors="0" time="0.027">
+    <testcase name="201 Created" time="0.027" classname="5EntradasReembolsoAnulacionCrearSegundoPagoParaAnular"/>
   </testsuite>
-  <testsuite name="5. Entradas → Reembolso / anulación / Anular pago PENDIENTE → ANULADO" id="2a2d8d77-59ba-48a0-bbf7-bccba32f9cce" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.007">
-    <testcase name="200 OK" time="0.007" classname="5EntradasReembolsoAnulacionAnularPagoPendienteAnulado"/>
-    <testcase name="Pago anulado sin reembolso" time="0.007" classname="5EntradasReembolsoAnulacionAnularPagoPendienteAnulado"/>
+  <testsuite name="5. Entradas → Reembolso / anulación / Anular pago PENDIENTE → ANULADO" id="88ce7279-d245-46f5-b6d3-7724d6f10c91" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.030">
+    <testcase name="200 OK" time="0.030" classname="5EntradasReembolsoAnulacionAnularPagoPendienteAnulado"/>
+    <testcase name="Pago anulado sin reembolso" time="0.030" classname="5EntradasReembolsoAnulacionAnularPagoPendienteAnulado"/>
   </testsuite>
-  <testsuite name="5. Entradas → Reembolso / anulación / Motivo faltante (400)" id="c163ea57-0d3f-4f8d-8da8-2f8193bfe15f" timestamp="2026-10-29T01:33:29.332Z" tests="1" failures="0" errors="0" time="0.004">
-    <testcase name="400 Bad Request" time="0.004" classname="5EntradasReembolsoAnulacionMotivoFaltante400"/>
+  <testsuite name="5. Entradas → Reembolso / anulación / Motivo faltante (400)" id="e4d7ad9c-c4dc-46c4-84f4-a94cd813a9ea" timestamp="2026-10-29T23:58:43.127Z" tests="1" failures="0" errors="0" time="0.019">
+    <testcase name="400 Bad Request" time="0.019" classname="5EntradasReembolsoAnulacionMotivoFaltante400"/>
   </testsuite>
-  <testsuite name="6. Administración → Eliminar pago (DELETE en la BD) / Rol organizador no puede eliminar (403)" id="653d2c93-1225-4811-9c38-e94bed62ccc6" timestamp="2026-10-29T01:33:29.332Z" tests="1" failures="0" errors="0" time="0.004">
-    <testcase name="403 Forbidden" time="0.004" classname="6AdministracionEliminarPagoDeleteEnLaBdRolOrganizadorNoPuedeEliminar403"/>
+  <testsuite name="6. Administración → Eliminar pago (DELETE en la BD) / Rol organizador no puede eliminar (403)" id="97a7cce7-2f7f-431a-b9d4-f2cc97b45dbe" timestamp="2026-10-29T23:58:43.127Z" tests="1" failures="0" errors="0" time="0.019">
+    <testcase name="403 Forbidden" time="0.019" classname="6AdministracionEliminarPagoDeleteEnLaBdRolOrganizadorNoPuedeEliminar403"/>
   </testsuite>
-  <testsuite name="6. Administración → Eliminar pago (DELETE en la BD) / Pago REEMBOLSADO no se elimina (409)" id="7fc1a052-9e1d-438f-a302-1157df40e9b3" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.006">
-    <testcase name="409 Conflict" time="0.006" classname="6AdministracionEliminarPagoDeleteEnLaBdPagoReembolsadoNoSeElimina409"/>
-    <testcase name="Código PAGO_NO_ELIMINABLE" time="0.006" classname="6AdministracionEliminarPagoDeleteEnLaBdPagoReembolsadoNoSeElimina409"/>
+  <testsuite name="6. Administración → Eliminar pago (DELETE en la BD) / Pago REEMBOLSADO no se elimina (409)" id="7a3546fb-79cc-408d-9995-7afcfca0dcf0" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.011">
+    <testcase name="409 Conflict" time="0.011" classname="6AdministracionEliminarPagoDeleteEnLaBdPagoReembolsadoNoSeElimina409"/>
+    <testcase name="Código PAGO_NO_ELIMINABLE" time="0.011" classname="6AdministracionEliminarPagoDeleteEnLaBdPagoReembolsadoNoSeElimina409"/>
   </testsuite>
-  <testsuite name="6. Administración → Eliminar pago (DELETE en la BD) / Staff elimina el pago ANULADO (200)" id="807f237d-d491-450b-86d3-41bffb412bd4" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.009">
-    <testcase name="200 OK" time="0.009" classname="6AdministracionEliminarPagoDeleteEnLaBdStaffEliminaElPagoAnulado200"/>
-    <testcase name="Pago eliminado" time="0.009" classname="6AdministracionEliminarPagoDeleteEnLaBdStaffEliminaElPagoAnulado200"/>
+  <testsuite name="6. Administración → Eliminar pago (DELETE en la BD) / Staff elimina el pago ANULADO (200)" id="20b40e4c-930c-4a6d-9cbc-782a0970baa7" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.020">
+    <testcase name="200 OK" time="0.020" classname="6AdministracionEliminarPagoDeleteEnLaBdStaffEliminaElPagoAnulado200"/>
+    <testcase name="Pago eliminado" time="0.020" classname="6AdministracionEliminarPagoDeleteEnLaBdStaffEliminaElPagoAnulado200"/>
   </testsuite>
-  <testsuite name="6. Administración → Eliminar pago (DELETE en la BD) / El pago eliminado ya no existe (404)" id="2f1ae351-75b6-427d-934f-2e9934e800c0" timestamp="2026-10-29T01:33:29.332Z" tests="1" failures="0" errors="0" time="0.004">
-    <testcase name="404 Not Found" time="0.004" classname="6AdministracionEliminarPagoDeleteEnLaBdElPagoEliminadoYaNoExiste404"/>
+  <testsuite name="6. Administración → Eliminar pago (DELETE en la BD) / El pago eliminado ya no existe (404)" id="b0f93709-e710-46b0-b753-db38dcf9e511" timestamp="2026-10-29T23:58:43.127Z" tests="1" failures="0" errors="0" time="0.021">
+    <testcase name="404 Not Found" time="0.021" classname="6AdministracionEliminarPagoDeleteEnLaBdElPagoEliminadoYaNoExiste404"/>
   </testsuite>
-  <testsuite name="7. Promociones → Código de descuento (contrato v1.0, rutas del Gateway) / Crear pago con nombre_codigo (201)" id="ec5b122d-ac66-4131-a050-25bdbd4e7746" timestamp="2026-10-29T01:33:29.332Z" tests="1" failures="0" errors="0" time="0.006">
-    <testcase name="201 Created" time="0.006" classname="7PromocionesCodigoDeDescuentoContratoV10RutasDelGatewayCrearPagoConNombreCodigo201"/>
+  <testsuite name="7. Promociones → Código de descuento (contrato v1.0, rutas del Gateway) / Crear pago con nombre_codigo (201)" id="8aa470ff-1342-48f7-ba70-607a0669c1e6" timestamp="2026-10-29T23:58:43.127Z" tests="1" failures="0" errors="0" time="0.026">
+    <testcase name="201 Created" time="0.026" classname="7PromocionesCodigoDeDescuentoContratoV10RutasDelGatewayCrearPagoConNombreCodigo201"/>
   </testsuite>
-  <testsuite name="7. Promociones → Código de descuento (contrato v1.0, rutas del Gateway) / El pago guarda id_evento y nombre_codigo (200)" id="f240fa48-f4e8-4795-af53-d113469530b7" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.003">
-    <testcase name="200 OK" time="0.003" classname="7PromocionesCodigoDeDescuentoContratoV10RutasDelGatewayElPagoGuardaIdEventoYNombreCodigo200"/>
-    <testcase name="Referencias para Promociones" time="0.003" classname="7PromocionesCodigoDeDescuentoContratoV10RutasDelGatewayElPagoGuardaIdEventoYNombreCodigo200"/>
+  <testsuite name="7. Promociones → Código de descuento (contrato v1.0, rutas del Gateway) / El pago guarda id_evento y nombre_codigo (200)" id="4d6dab2a-27d2-4a67-b6cb-14bf44aa0025" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.005">
+    <testcase name="200 OK" time="0.005" classname="7PromocionesCodigoDeDescuentoContratoV10RutasDelGatewayElPagoGuardaIdEventoYNombreCodigo200"/>
+    <testcase name="Referencias para Promociones" time="0.005" classname="7PromocionesCodigoDeDescuentoContratoV10RutasDelGatewayElPagoGuardaIdEventoYNombreCodigo200"/>
   </testsuite>
-  <testsuite name="7. Promociones → Código de descuento (contrato v1.0, rutas del Gateway) / Reintento con otro código (409)" id="3b4a501a-cb33-4e41-a6f9-21d4bfc153b0" timestamp="2026-10-29T01:33:29.332Z" tests="1" failures="0" errors="0" time="0.004">
-    <testcase name="409 Conflict" time="0.004" classname="7PromocionesCodigoDeDescuentoContratoV10RutasDelGatewayReintentoConOtroCodigo409"/>
+  <testsuite name="7. Promociones → Código de descuento (contrato v1.0, rutas del Gateway) / Reintento con otro código (409)" id="18e3661f-5972-4ff0-9ace-3c717b2cc4d5" timestamp="2026-10-29T23:58:43.127Z" tests="1" failures="0" errors="0" time="0.017">
+    <testcase name="409 Conflict" time="0.017" classname="7PromocionesCodigoDeDescuentoContratoV10RutasDelGatewayReintentoConOtroCodigo409"/>
   </testsuite>
-  <testsuite name="7. Promociones → Código de descuento (contrato v1.0, rutas del Gateway) / nombre_codigo inválido (400)" id="bf56410b-b096-48db-b7ad-1b8c9050066d" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.003">
-    <testcase name="400 Bad Request" time="0.003" classname="7PromocionesCodigoDeDescuentoContratoV10RutasDelGatewayNombreCodigoInvalido400"/>
-    <testcase name="Informa el campo" time="0.003" classname="7PromocionesCodigoDeDescuentoContratoV10RutasDelGatewayNombreCodigoInvalido400"/>
+  <testsuite name="7. Promociones → Código de descuento (contrato v1.0, rutas del Gateway) / nombre_codigo inválido (400)" id="4888117d-9e18-46c5-9bf3-2be5dcb059c2" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.018">
+    <testcase name="400 Bad Request" time="0.018" classname="7PromocionesCodigoDeDescuentoContratoV10RutasDelGatewayNombreCodigoInvalido400"/>
+    <testcase name="Informa el campo" time="0.018" classname="7PromocionesCodigoDeDescuentoContratoV10RutasDelGatewayNombreCodigoInvalido400"/>
   </testsuite>
-  <testsuite name="8. Plataforma → Auth y destinatario / Perfil del comprador desde la sesión de Auth (200)" id="64d90ab9-34b7-4104-9c1d-2f972c583814" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.007">
-    <testcase name="200 OK" time="0.007" classname="8PlataformaAuthYDestinatarioPerfilDelCompradorDesdeLaSesionDeAuth200"/>
-    <testcase name="Perfil de la sesión de Auth (contrato v1.3)" time="0.007" classname="8PlataformaAuthYDestinatarioPerfilDelCompradorDesdeLaSesionDeAuth200"/>
+  <testsuite name="8. Plataforma → Auth y destinatario / Perfil del comprador desde la sesión de Auth (200)" id="2340784c-e428-45f5-b3c5-b3e9ca528e00" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.019">
+    <testcase name="200 OK" time="0.019" classname="8PlataformaAuthYDestinatarioPerfilDelCompradorDesdeLaSesionDeAuth200"/>
+    <testcase name="Perfil de la sesión de Auth (contrato v1.3)" time="0.019" classname="8PlataformaAuthYDestinatarioPerfilDelCompradorDesdeLaSesionDeAuth200"/>
   </testsuite>
-  <testsuite name="8. Plataforma → Auth y destinatario / Comprar para otra persona: PUT destinatario (200)" id="580be8de-322d-460b-a5c8-f6cf3cb3f826" timestamp="2026-10-29T01:33:29.332Z" tests="2" failures="0" errors="0" time="0.009">
-    <testcase name="200 OK" time="0.009" classname="8PlataformaAuthYDestinatarioComprarParaOtraPersonaPutDestinatario200"/>
-    <testcase name="RUT normalizado" time="0.009" classname="8PlataformaAuthYDestinatarioComprarParaOtraPersonaPutDestinatario200"/>
+  <testsuite name="8. Plataforma → Auth y destinatario / Comprar para otra persona: PUT destinatario (200)" id="34e4eb57-55f6-4180-8e74-f7bd87e4150a" timestamp="2026-10-29T23:58:43.127Z" tests="2" failures="0" errors="0" time="0.022">
+    <testcase name="200 OK" time="0.022" classname="8PlataformaAuthYDestinatarioComprarParaOtraPersonaPutDestinatario200"/>
+    <testcase name="RUT normalizado" time="0.022" classname="8PlataformaAuthYDestinatarioComprarParaOtraPersonaPutDestinatario200"/>
   </testsuite>
-  <testsuite name="8. Plataforma → Auth y destinatario / RUT con dígito verificador inválido (400)" id="59dae9a2-a2d2-4b40-a3d8-83debf184d53" timestamp="2026-10-29T01:33:29.332Z" tests="1" failures="0" errors="0" time="0.003">
-    <testcase name="400 Bad Request" time="0.003" classname="8PlataformaAuthYDestinatarioRutConDigitoVerificadorInvalido400"/>
+  <testsuite name="8. Plataforma → Auth y destinatario / RUT con dígito verificador inválido (400)" id="18a9a4db-e076-43e4-9ca8-7c40171086a7" timestamp="2026-10-29T23:58:43.127Z" tests="1" failures="0" errors="0" time="0.019">
+    <testcase name="400 Bad Request" time="0.019" classname="8PlataformaAuthYDestinatarioRutConDigitoVerificadorInvalido400"/>
   </testsuite>
-  <testsuite name="8. Plataforma → Auth y destinatario / Otro usuario no puede elegir el destinatario (403)" id="5f418a69-b2f0-485d-821c-3ca55537121d" timestamp="2026-10-29T01:33:29.332Z" tests="1" failures="0" errors="0" time="0.005">
-    <testcase name="403 Forbidden" time="0.005" classname="8PlataformaAuthYDestinatarioOtroUsuarioNoPuedeElegirElDestinatario403"/>
+  <testsuite name="8. Plataforma → Auth y destinatario / Otro usuario no puede elegir el destinatario (403)" id="e3be3bb1-3590-4bed-8fa6-66a086e917f9" timestamp="2026-10-29T23:58:43.127Z" tests="1" failures="0" errors="0" time="0.020">
+    <testcase name="403 Forbidden" time="0.020" classname="8PlataformaAuthYDestinatarioOtroUsuarioNoPuedeElegirElDestinatario403"/>
   </testsuite>
 </testsuites>

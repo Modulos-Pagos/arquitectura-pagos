@@ -1797,7 +1797,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 OK', () => pm.response.to.have.status(200));",
-                  "pm.test('RUT normalizado', () => pm.expect(pm.response.json().destinatario.rut).to.eql('11111111-1'));"
+                  "pm.test('RUT normalizado', () => pm.expect(pm.response.json().destinatario.rut).to.eql('11.111.111-1'));"
                 ]
               }
             }
