@@ -1,206 +1,208 @@
 ▶ Contrato Entradas v2.3 — request tal como lo envía Entradas
-  ✔ acepta el request de Entradas con la cookie jwt reenviada (sin id_evento), por /api/v1 y por el Gateway (56.70986ms)
-  ✔ ya no acepta Authorization: Bearer ni token_sesion (401) (7.30328ms)
-  ✔ el reintento de Entradas con el mismo id_reserva devuelve el mismo pago (200) (9.891095ms)
-  ✔ rechaza una cookie jwt inválida o ausente (401) (4.788476ms)
-  ✔ si envían id_evento vacío se informa el error (400) (3.689305ms)
-✔ Contrato Entradas v2.3 — request tal como lo envía Entradas (168.136402ms)
+  ✔ acepta el request de Entradas con la cookie jwt reenviada (sin id_evento), por /api/v1 y por el Gateway (81.392574ms)
+  ✔ ya no acepta Authorization: Bearer ni token_sesion (401) (12.277845ms)
+  ✔ el reintento de Entradas con el mismo id_reserva devuelve el mismo pago (200) (14.489689ms)
+  ✔ rechaza una cookie jwt inválida o ausente (401) (8.509423ms)
+  ✔ si envían id_evento vacío se informa el error (400) (5.409616ms)
+✔ Contrato Entradas v2.3 — request tal como lo envía Entradas (254.280458ms)
 ▶ Invocación a Entradas/Inventario (BE2)
-  ✔ si la orden coincide con Entradas se crea el pago y se reenvía la cookie de sesión (46.407639ms)
-  ✔ si el total fue alterado responde 422 ORDEN_INCONSISTENTE y no crea el pago (12.555737ms)
-  ✔ si Entradas no conoce la reserva responde 422 RESERVA_NO_ENCONTRADA (5.800442ms)
-  ✔ si Entradas falla responde 503 ENTRADAS_NO_DISPONIBLE (4.938624ms)
-  ✔ si Entradas no responde a tiempo, corta a los 500 ms (respeta el SLA de 2000 ms) (303.159683ms)
-✔ Invocación a Entradas/Inventario (BE2) (460.602499ms)
+  ✔ si la orden coincide con Entradas se crea el pago y se reenvía la cookie de sesión (74.229336ms)
+  ✔ si el total fue alterado responde 422 ORDEN_INCONSISTENTE y no crea el pago (22.809373ms)
+  ✔ si Entradas no conoce la reserva responde 422 RESERVA_NO_ENCONTRADA (8.516965ms)
+  ✔ si Entradas falla responde 503 ENTRADAS_NO_DISPONIBLE (6.598918ms)
+  ✔ si Entradas no responde a tiempo, corta a los 500 ms (respeta el SLA de 2000 ms) (304.67391ms)
+  ✔ lee también los nombres de campos del API de reservas de Entradas (monto_total, cantidad_entrada, hold_id) (1.589904ms)
+  ✔ deja una línea de log por llamada, sin la cookie ni el token (evidencia BE1) (0.750357ms)
+✔ Invocación a Entradas/Inventario (BE2) (562.176312ms)
 ▶ Operación
-  ✔ GET /health informa BD, pasarela y modos de Entradas, Auth y broker (29.23943ms)
-  ✔ publica el Swagger propio y el de servicios consumidos (8.160318ms)
-✔ Operación (123.330734ms)
+  ✔ GET /health informa BD, pasarela y modos de Entradas, Auth y broker (45.724687ms)
+  ✔ publica el Swagger propio y el de servicios consumidos (11.874498ms)
+✔ Operación (169.360397ms)
 ▶ POST /transacciones — crear pago (HU 1.1, HU 1.3)
-  ✔ crea el pago PENDIENTE con url_checkout y lo guarda en la BD (23.993151ms)
-  ✔ es idempotente: el reintento de Entradas devuelve 200 con el mismo pago (12.721238ms)
-  ✔ solicitudes simultáneas con la misma reserva generan un único pago (24.309761ms)
-  ✔ responde 409 si la misma reserva llega con otro monto (13.025004ms)
-  ✔ responde 400 con el detalle de los campos inválidos (3.254938ms)
-  ✔ responde 400 si el body no es JSON (3.139515ms)
-  ✔ responde 401 sin token o con token inválido (6.387889ms)
-✔ POST /transacciones — crear pago (HU 1.1, HU 1.3) (87.452726ms)
+  ✔ crea el pago PENDIENTE con url_checkout y lo guarda en la BD (35.931577ms)
+  ✔ es idempotente: el reintento de Entradas devuelve 200 con el mismo pago (17.482699ms)
+  ✔ solicitudes simultáneas con la misma reserva generan un único pago (37.99267ms)
+  ✔ responde 409 si la misma reserva llega con otro monto (22.458261ms)
+  ✔ responde 400 con el detalle de los campos inválidos (3.87094ms)
+  ✔ responde 400 si el body no es JSON (5.724973ms)
+  ✔ responde 401 sin token o con token inválido (11.143975ms)
+✔ POST /transacciones — crear pago (HU 1.1, HU 1.3) (135.354791ms)
 ▶ POST /transacciones con metodo "formulario" (Stripe Elements del front)
-  ✔ es el método por defecto: url_checkout lleva al front de Pagos y devuelve client_secret (9.53882ms)
-  ✔ el reintento devuelve el mismo pago y vuelve a entregar el client_secret (5.518606ms)
-[pagos] (broker mock) evento pago.realizado del pago 8c5f1a17-6738-4182-a165-5452c4cc63c8
-[pagos] (broker mock) evento pago.completado del pago 8c5f1a17-6738-4182-a165-5452c4cc63c8
-  ✔ después de confirmar la tarjeta, el polling consulta el PaymentIntent y aprueba el pago (10.974592ms)
-[pagos] (broker mock) evento pago.realizado del pago 9dd53f59-e9a2-4086-8354-c3ad28ab97c7
-[pagos] (broker mock) evento pago.completado del pago 9dd53f59-e9a2-4086-8354-c3ad28ab97c7
-  ✔ el webhook payment_intent.succeeded aprueba el pago (8.131724ms)
-[pagos] (broker mock) evento pago.anulado del pago eeb879b7-be50-4bb1-8567-79c10dc7213a
-[pagos] (broker mock) evento pago.realizado del pago 732c706d-8901-4dd6-88af-78b4a297cf7b
-[pagos] (broker mock) evento pago.completado del pago 732c706d-8901-4dd6-88af-78b4a297cf7b
-[pagos] (broker mock) evento pago.reembolsado del pago 732c706d-8901-4dd6-88af-78b4a297cf7b
-  ✔ anular un pago del formulario PENDIENTE cancela el PaymentIntent (ANULADO) y uno aprobado se reembolsa (20.988143ms)
-[pagos] (broker mock) evento pago.realizado del pago c6234cbb-831f-4f8e-b8c9-e1bc8566e307
-[pagos] (broker mock) evento pago.completado del pago c6234cbb-831f-4f8e-b8c9-e1bc8566e307
-  ✔ GET /{id_pago}/checkout entrega al front el monto y el client_secret; sin secreto si ya se pagó (11.70588ms)
-  ✔ rechaza un metodo desconocido (400) (2.953205ms)
-✔ POST /transacciones con metodo "formulario" (Stripe Elements del front) (70.186621ms)
+  ✔ es el método por defecto: url_checkout lleva al front de Pagos y devuelve client_secret (13.125551ms)
+  ✔ el reintento devuelve el mismo pago y vuelve a entregar el client_secret (9.014485ms)
+[pagos] (broker mock) evento pago.realizado del pago b70e6de5-4c7e-4a52-8c67-986b9b9e476b
+[pagos] (broker mock) evento pago.completado del pago b70e6de5-4c7e-4a52-8c67-986b9b9e476b
+  ✔ después de confirmar la tarjeta, el polling consulta el PaymentIntent y aprueba el pago (18.985182ms)
+[pagos] (broker mock) evento pago.realizado del pago 378a207c-c389-4daa-b8fc-cb36867d44ee
+[pagos] (broker mock) evento pago.completado del pago 378a207c-c389-4daa-b8fc-cb36867d44ee
+  ✔ el webhook payment_intent.succeeded aprueba el pago (14.186462ms)
+[pagos] (broker mock) evento pago.anulado del pago 98540796-8358-458d-8534-9563f7aec571
+[pagos] (broker mock) evento pago.realizado del pago 281ba680-c810-4992-9a0f-1e6d748a4a3d
+[pagos] (broker mock) evento pago.completado del pago 281ba680-c810-4992-9a0f-1e6d748a4a3d
+[pagos] (broker mock) evento pago.reembolsado del pago 281ba680-c810-4992-9a0f-1e6d748a4a3d
+  ✔ anular un pago del formulario PENDIENTE cancela el PaymentIntent (ANULADO) y uno aprobado se reembolsa (39.194134ms)
+[pagos] (broker mock) evento pago.realizado del pago 498afc0e-7e4c-4311-b0be-8d4c9844213a
+[pagos] (broker mock) evento pago.completado del pago 498afc0e-7e4c-4311-b0be-8d4c9844213a
+  ✔ GET /{id_pago}/checkout entrega al front el monto y el client_secret; sin secreto si ya se pagó (16.968114ms)
+  ✔ rechaza un metodo desconocido (400) (3.463188ms)
+✔ POST /transacciones con metodo "formulario" (Stripe Elements del front) (115.448606ms)
 ▶ GET /{id_pago} — polling de estado (HU 1.4, HU 1.6)
-  ✔ el dueño consulta su pago PENDIENTE (5.661972ms)
-  ✔ otro usuario recibe 403; un usuario staff sí puede consultar (12.090831ms)
-  ✔ responde 404 si no existe y 400 si el id no es UUID (4.638176ms)
-[pagos] (broker mock) evento pago.realizado del pago 56831cef-2598-4000-ad7e-4e9f9093ad13
-[pagos] (broker mock) evento pago.completado del pago 56831cef-2598-4000-ad7e-4e9f9093ad13
-  ✔ si el webhook no llegó, el polling consulta a la pasarela y aprueba el pago (9.825144ms)
-[pagos] (broker mock) evento pago.rechazado del pago def997a6-e05a-4e5d-883e-afc9b8c9992a
-  ✔ si la sesión expiró, el polling devuelve RECHAZADO con motivo (8.433548ms)
-✔ GET /{id_pago} — polling de estado (HU 1.4, HU 1.6) (40.879971ms)
-[pagos] (broker mock) evento pago.realizado del pago be72044e-f24c-4b50-9b36-5847e9627372
-[pagos] (broker mock) evento pago.completado del pago be72044e-f24c-4b50-9b36-5847e9627372
+  ✔ el dueño consulta su pago PENDIENTE (8.087559ms)
+  ✔ otro usuario recibe 403; un usuario staff sí puede consultar (14.33669ms)
+  ✔ responde 404 si no existe y 400 si el id no es UUID (6.271159ms)
+[pagos] (broker mock) evento pago.realizado del pago 1ab1e57e-f906-483f-b434-9b03c785f04b
+[pagos] (broker mock) evento pago.completado del pago 1ab1e57e-f906-483f-b434-9b03c785f04b
+  ✔ si el webhook no llegó, el polling consulta a la pasarela y aprueba el pago (13.741607ms)
+[pagos] (broker mock) evento pago.rechazado del pago 2a80d667-d51a-4d33-bc80-100a36a19ec2
+  ✔ si la sesión expiró, el polling devuelve RECHAZADO con motivo (14.563014ms)
+✔ GET /{id_pago} — polling de estado (HU 1.4, HU 1.6) (57.333773ms)
+[pagos] (broker mock) evento pago.realizado del pago 49ee09b2-fa24-44da-b4fe-39904f13bea3
+[pagos] (broker mock) evento pago.completado del pago 49ee09b2-fa24-44da-b4fe-39904f13bea3
 ▶ POST /webhooks/stripe — aviso de la pasarela (HU 1.3, HU 1.4)
-  ✔ checkout.session.completed aprueba el pago y guarda el evento (14.041895ms)
-[pagos] (broker mock) evento pago.realizado del pago 688cd94b-ab42-46b8-9cdc-56595f7e3390
-[pagos] (broker mock) evento pago.completado del pago 688cd94b-ab42-46b8-9cdc-56595f7e3390
-  ✔ un evento repetido por Stripe se ignora (duplicado: true) (8.771483ms)
-[pagos] (broker mock) evento pago.rechazado del pago 6060414d-fcc1-4bd8-8ae5-0fe874f24c3d
-  ✔ checkout.session.expired rechaza el pago (6.883465ms)
-[pagos] (broker mock) evento pago.realizado del pago 0da74eaa-24dc-4fbe-ac87-66da67003071
-[pagos] (broker mock) evento pago.completado del pago 0da74eaa-24dc-4fbe-ac87-66da67003071
-  ✔ no permite volver atrás: un expired tras aprobar no cambia el estado (11.313885ms)
-  ✔ responde 400 si el cuerpo no es JSON (1.376557ms)
-✔ POST /webhooks/stripe — aviso de la pasarela (HU 1.3, HU 1.4) (42.609916ms)
-[pagos] (broker mock) evento pago.anulado del pago f1bc0708-92c3-46c9-980d-6a815f4e3d97
+  ✔ checkout.session.completed aprueba el pago y guarda el evento (14.516387ms)
+[pagos] (broker mock) evento pago.realizado del pago 36091f83-8fdb-465c-a5ab-4064b4d9e5a7
+[pagos] (broker mock) evento pago.completado del pago 36091f83-8fdb-465c-a5ab-4064b4d9e5a7
+  ✔ un evento repetido por Stripe se ignora (duplicado: true) (11.480584ms)
+[pagos] (broker mock) evento pago.rechazado del pago 5144a55c-d188-4b14-bc44-0279ac08a783
+  ✔ checkout.session.expired rechaza el pago (9.206318ms)
+[pagos] (broker mock) evento pago.realizado del pago db78baa7-139c-4bed-8cc7-82acbc2ced7e
+[pagos] (broker mock) evento pago.completado del pago db78baa7-139c-4bed-8cc7-82acbc2ced7e
+  ✔ no permite volver atrás: un expired tras aprobar no cambia el estado (14.79329ms)
+  ✔ responde 400 si el cuerpo no es JSON (1.897054ms)
+✔ POST /webhooks/stripe — aviso de la pasarela (HU 1.3, HU 1.4) (52.235614ms)
+[pagos] (broker mock) evento pago.anulado del pago d12a921c-b256-468a-bbeb-4a49b6017fb5
 ▶ POST /{id_pago}/reembolso — anular o reembolsar (HU 3.1, HU 3.3)
-  ✔ un pago PENDIENTE queda ANULADO (no se cobra) (10.233098ms)
-[pagos] (broker mock) evento pago.realizado del pago 7c5abe72-39f2-4240-ad03-26b0e62ecfcc
-[pagos] (broker mock) evento pago.completado del pago 7c5abe72-39f2-4240-ad03-26b0e62ecfcc
-[pagos] (broker mock) evento pago.reembolsado del pago 7c5abe72-39f2-4240-ad03-26b0e62ecfcc
-  ✔ un pago APROBADO queda REEMBOLSADO y se registra el reembolso (16.097944ms)
-[pagos] (broker mock) evento pago.realizado del pago cfa07052-8627-46e5-93a5-dbdbae6ecfbc
-[pagos] (broker mock) evento pago.completado del pago cfa07052-8627-46e5-93a5-dbdbae6ecfbc
-[pagos] (broker mock) evento pago.reembolsado del pago cfa07052-8627-46e5-93a5-dbdbae6ecfbc
-  ✔ el reintento del reembolso es idempotente (ya_procesado: true) (15.050358ms)
-[pagos] (broker mock) evento pago.realizado del pago e6e431f8-a45e-4004-8bac-5add086c3c24
-[pagos] (broker mock) evento pago.completado del pago e6e431f8-a45e-4004-8bac-5add086c3c24
-[pagos] (broker mock) evento pago.reembolsado del pago e6e431f8-a45e-4004-8bac-5add086c3c24
-  ✔ si el usuario pagó justo antes de anular, se reembolsa en vez de anular (8.333609ms)
-[pagos] (broker mock) evento pago.rechazado del pago 21c07660-1b47-422f-aacf-968788cc0c74
-  ✔ un pago RECHAZADO no se puede reembolsar (409) (8.737824ms)
-  ✔ otro comprador no puede anular un pago ajeno (403) y el motivo es obligatorio (400) (6.905096ms)
-✔ POST /{id_pago}/reembolso — anular o reembolsar (HU 3.1, HU 3.3) (65.731485ms)
-[pagos] (broker mock) evento pago.realizado del pago f81d3295-8cf2-4f70-8999-f35271697d1b
-[pagos] (broker mock) evento pago.completado del pago f81d3295-8cf2-4f70-8999-f35271697d1b
-[pagos] (broker mock) evento pago.realizado del pago d6f310dc-3038-4942-9621-66eb0c9daf33
-[pagos] (broker mock) evento pago.completado del pago d6f310dc-3038-4942-9621-66eb0c9daf33
+  ✔ un pago PENDIENTE queda ANULADO (no se cobra) (14.941675ms)
+[pagos] (broker mock) evento pago.realizado del pago 53c36707-a9b1-4a97-836f-4550441ad89f
+[pagos] (broker mock) evento pago.completado del pago 53c36707-a9b1-4a97-836f-4550441ad89f
+[pagos] (broker mock) evento pago.reembolsado del pago 53c36707-a9b1-4a97-836f-4550441ad89f
+  ✔ un pago APROBADO queda REEMBOLSADO y se registra el reembolso (20.288496ms)
+[pagos] (broker mock) evento pago.realizado del pago 04b03102-8406-4644-b131-2fe2d3ba30a6
+[pagos] (broker mock) evento pago.completado del pago 04b03102-8406-4644-b131-2fe2d3ba30a6
+[pagos] (broker mock) evento pago.reembolsado del pago 04b03102-8406-4644-b131-2fe2d3ba30a6
+  ✔ el reintento del reembolso es idempotente (ya_procesado: true) (21.441424ms)
+[pagos] (broker mock) evento pago.realizado del pago 9ceeafff-6233-4b6b-8214-a2ed3f859747
+[pagos] (broker mock) evento pago.completado del pago 9ceeafff-6233-4b6b-8214-a2ed3f859747
+[pagos] (broker mock) evento pago.reembolsado del pago 9ceeafff-6233-4b6b-8214-a2ed3f859747
+  ✔ si el usuario pagó justo antes de anular, se reembolsa en vez de anular (13.709869ms)
+[pagos] (broker mock) evento pago.rechazado del pago 56d78314-0ab7-4551-b8f1-000c8035979b
+  ✔ un pago RECHAZADO no se puede reembolsar (409) (19.438821ms)
+  ✔ otro comprador no puede anular un pago ajeno (403) y el motivo es obligatorio (400) (13.523056ms)
+✔ POST /{id_pago}/reembolso — anular o reembolsar (HU 3.1, HU 3.3) (103.857901ms)
+[pagos] (broker mock) evento pago.realizado del pago 39985277-9d58-452f-ad5a-35867d29c467
+[pagos] (broker mock) evento pago.completado del pago 39985277-9d58-452f-ad5a-35867d29c467
+[pagos] (broker mock) evento pago.realizado del pago da9b00c1-8d6a-48f3-9bf9-fd42e79b4efc
+[pagos] (broker mock) evento pago.completado del pago da9b00c1-8d6a-48f3-9bf9-fd42e79b4efc
 ▶ GET /api/v1/pagos — listado para Promociones e historial del usuario (HU 3.4)
-  ✔ un usuario staff obtiene los id_pago APROBADOS de un usuario (listado para Promociones) (20.450416ms)
-  ✔ un comprador solo ve sus propios pagos (4.750165ms)
-  ✔ pagina los resultados y valida los filtros (7.115422ms)
-✔ GET /api/v1/pagos — listado para Promociones e historial del usuario (HU 3.4) (32.489032ms)
-[pagos] (broker mock) evento pago.anulado del pago 935a542d-fe37-4dc1-b40a-f59c0e248617
+  ✔ un usuario staff obtiene los id_pago APROBADOS de un usuario (listado para Promociones) (32.218271ms)
+  ✔ un comprador solo ve sus propios pagos (7.642354ms)
+  ✔ pagina los resultados y valida los filtros (12.744609ms)
+✔ GET /api/v1/pagos — listado para Promociones e historial del usuario (HU 3.4) (52.920922ms)
+[pagos] (broker mock) evento pago.anulado del pago 4ae97d67-a60c-46dd-bb0d-4afa7e574d13
 ▶ DELETE /{id_pago} — eliminar un pago de la BD (solo staff)
-  ✔ staff elimina un pago ANULADO y deja de existir en la BD (404 al consultarlo) (12.783047ms)
-[pagos] (broker mock) evento pago.rechazado del pago 6581150a-d9e2-48a4-9e91-88ead114ebb4
-  ✔ un pago RECHAZADO con eventos de webhook se elimina y los eventos quedan como evidencia (10.202257ms)
-[pagos] (broker mock) evento pago.realizado del pago ad0ddfe0-2711-4b5e-9d6c-560e3df24a8c
-[pagos] (broker mock) evento pago.completado del pago ad0ddfe0-2711-4b5e-9d6c-560e3df24a8c
-[pagos] (broker mock) evento pago.realizado del pago 160aabdf-defd-4085-aaae-cf8b32bf1663
-[pagos] (broker mock) evento pago.completado del pago 160aabdf-defd-4085-aaae-cf8b32bf1663
-[pagos] (broker mock) evento pago.reembolsado del pago 160aabdf-defd-4085-aaae-cf8b32bf1663
-  ✔ no elimina pagos PENDIENTES, APROBADOS ni REEMBOLSADOS (409 PAGO_NO_ELIMINABLE) (30.079839ms)
-[pagos] (broker mock) evento pago.anulado del pago d0557aa9-163d-46ae-b9a9-55b71d937e72
-  ✔ solo staff: el dueño y un organizador reciben 403; sin sesión 401; id inexistente 404 (16.299237ms)
-✔ DELETE /{id_pago} — eliminar un pago de la BD (solo staff) (69.534579ms)
+  ✔ staff elimina un pago ANULADO y deja de existir en la BD (404 al consultarlo) (17.765521ms)
+[pagos] (broker mock) evento pago.rechazado del pago 8abfface-c2e9-403f-be67-48d8b95ffc61
+  ✔ un pago RECHAZADO con eventos de webhook se elimina y los eventos quedan como evidencia (18.199759ms)
+[pagos] (broker mock) evento pago.realizado del pago f5a327a2-ee01-46dd-aa45-3b2b95a47c50
+[pagos] (broker mock) evento pago.completado del pago f5a327a2-ee01-46dd-aa45-3b2b95a47c50
+[pagos] (broker mock) evento pago.realizado del pago 41f201ad-788b-47ef-aa55-8527a3b0eb58
+[pagos] (broker mock) evento pago.completado del pago 41f201ad-788b-47ef-aa55-8527a3b0eb58
+[pagos] (broker mock) evento pago.reembolsado del pago 41f201ad-788b-47ef-aa55-8527a3b0eb58
+  ✔ no elimina pagos PENDIENTES, APROBADOS ni REEMBOLSADOS (409 PAGO_NO_ELIMINABLE) (42.569087ms)
+[pagos] (broker mock) evento pago.anulado del pago 118c3522-a883-4b0d-889e-4766c157cb95
+  ✔ solo staff: el dueño y un organizador reciben 403; sin sesión 401; id inexistente 404 (22.054185ms)
+✔ DELETE /{id_pago} — eliminar un pago de la BD (solo staff) (100.882829ms)
 ▶ Rutas del API Gateway (/api/pagos)
-  ✔ las operaciones responden igual bajo /api/pagos y /api/v1/pagos (65.738999ms)
-  ✔ GET /api/pagos/health responde sin token (para probar a través del Gateway) (3.210061ms)
-[pagos] (broker mock) evento pago.realizado del pago 907da157-38c3-4bd4-881d-0145d243e4e2
-[pagos] (broker mock) evento pago.completado del pago 907da157-38c3-4bd4-881d-0145d243e4e2
-  ✔ el webhook de Stripe también se recibe en /api/pagos/webhooks/stripe (15.269344ms)
-✔ Rutas del API Gateway (/api/pagos) (170.764003ms)
-[pagos] (broker mock) evento pago.realizado del pago 7965c3b3-8f33-45fa-8a19-35f9a28d9144
-[pagos] (broker mock) evento pago.completado del pago 7965c3b3-8f33-45fa-8a19-35f9a28d9144
+  ✔ las operaciones responden igual bajo /api/pagos y /api/v1/pagos (99.793038ms)
+  ✔ GET /api/pagos/health responde sin token (para probar a través del Gateway) (4.479366ms)
+[pagos] (broker mock) evento pago.realizado del pago a3481492-ebcf-48c2-b265-85f5a4917c66
+[pagos] (broker mock) evento pago.completado del pago a3481492-ebcf-48c2-b265-85f5a4917c66
+  ✔ el webhook de Stripe también se recibe en /api/pagos/webhooks/stripe (23.841287ms)
+✔ Rutas del API Gateway (/api/pagos) (250.845654ms)
+[pagos] (broker mock) evento pago.realizado del pago 40cfe5c2-5fe5-4d3f-961a-8528c486aecb
+[pagos] (broker mock) evento pago.completado del pago 40cfe5c2-5fe5-4d3f-961a-8528c486aecb
 ▶ Eventos en el broker (pago.*)
-  ✔ al aprobarse publica pago.realizado con los datos que necesita Entradas (10.953384ms)
-[pagos] (broker mock) evento pago.realizado del pago cfbe4e52-6e40-440c-970a-5d21170676d2
-[pagos] (broker mock) evento pago.completado del pago cfbe4e52-6e40-440c-970a-5d21170676d2
-  ✔ un webhook repetido por Stripe no vuelve a publicar el evento (11.272801ms)
-[pagos] (broker mock) evento pago.rechazado del pago fbf383cb-7da9-42b4-a52d-13628c57f763
-[pagos] (broker mock) evento pago.anulado del pago b8b8f14a-78ad-4912-99c5-7a259ab7c7b4
-[pagos] (broker mock) evento pago.realizado del pago b9974f05-2ee5-42fa-8b3c-e9004de8b761
-[pagos] (broker mock) evento pago.completado del pago b9974f05-2ee5-42fa-8b3c-e9004de8b761
-[pagos] (broker mock) evento pago.reembolsado del pago b9974f05-2ee5-42fa-8b3c-e9004de8b761
-  ✔ publica pago.rechazado (sesión expirada), pago.anulado y pago.reembolsado con su motivo (35.126381ms)
-  ✔ por defecto la routing key es pago.realizado (guía del Platform Team); con BROKER_SEPARADOR="_" es pago_realizado (0.211148ms)
-[pagos] No se pudo publicar pago.realizado del pago c3969b65-9586-44c1-9651-e48a98cc209f: ECONNREFUSED
-[pagos] No se pudo publicar pago.completado del pago c3969b65-9586-44c1-9651-e48a98cc209f: ECONNREFUSED
-  ✔ si el broker está caído el pago igual se aprueba (la publicación no bloquea el negocio) (54.400863ms)
-✔ Eventos en el broker (pago.*) (112.681594ms)
+  ✔ al aprobarse publica pago.realizado con los datos que necesita Entradas (13.114238ms)
+[pagos] (broker mock) evento pago.realizado del pago 103ec490-f4b8-4df5-ab47-a682da2a184f
+[pagos] (broker mock) evento pago.completado del pago 103ec490-f4b8-4df5-ab47-a682da2a184f
+  ✔ un webhook repetido por Stripe no vuelve a publicar el evento (20.999827ms)
+[pagos] (broker mock) evento pago.rechazado del pago 91ee4a60-33de-4929-94b1-5c38e08f4361
+[pagos] (broker mock) evento pago.anulado del pago ce1a8bb4-55f6-48a9-815c-1d68c0335a5d
+[pagos] (broker mock) evento pago.realizado del pago 763135b9-070f-4230-9b53-21cb5bf41fc6
+[pagos] (broker mock) evento pago.completado del pago 763135b9-070f-4230-9b53-21cb5bf41fc6
+[pagos] (broker mock) evento pago.reembolsado del pago 763135b9-070f-4230-9b53-21cb5bf41fc6
+  ✔ publica pago.rechazado (sesión expirada), pago.anulado y pago.reembolsado con su motivo (55.048632ms)
+  ✔ por defecto la routing key es pago.realizado (guía del Platform Team); con BROKER_SEPARADOR="_" es pago_realizado (0.386819ms)
+[pagos] No se pudo publicar pago.realizado del pago 950a3d31-fcff-4738-9605-9178c6fb6e9e: ECONNREFUSED
+[pagos] No se pudo publicar pago.completado del pago 950a3d31-fcff-4738-9605-9178c6fb6e9e: ECONNREFUSED
+  ✔ si el broker está caído el pago igual se aprueba (la publicación no bloquea el negocio) (82.647025ms)
+✔ Eventos en el broker (pago.*) (173.037785ms)
 ▶ Auth ↔ Pagos v1.3: validar sesión (cookie jwt + x-api-key)
-  ✔ reenvía el header Cookie intacto y la x-api-key; usa el id y el rol que entrega Auth (62.577632ms)
-  ✔ si Auth rechaza la sesión (401), Pagos responde 401 (29.314072ms)
-  ✔ x-api-key rechazada (403 de Auth) → 403; error interno de Auth (500) → 500 (22.275227ms)
-  ✔ el rol staff de Auth puede operar sobre pagos ajenos; organizador no (46.835386ms)
-  ✔ fail-secure: si Auth no responde, 503 AUTH_NO_DISPONIBLE y no se crea el pago (22.130254ms)
-  ✔ en cada petición consulta a Auth, aunque no venga cookie o venga un Bearer: Auth decide (401) (20.600311ms)
-[pagos] (broker mock) evento pago.anulado del pago c2ff8b92-97c6-4b33-84fb-7bba9c5ff326
-  ✔ staff consulta y reembolsa pagos ajenos, pero no los paga ni elige el destinatario (33.625994ms)
-✔ Auth ↔ Pagos v1.3: validar sesión (cookie jwt + x-api-key) (237.80954ms)
+  ✔ reenvía el header Cookie intacto y la x-api-key; usa el id y el rol que entrega Auth (81.101843ms)
+  ✔ si Auth rechaza la sesión (401), Pagos responde 401 (47.817213ms)
+  ✔ x-api-key rechazada (403 de Auth) → 403; error interno de Auth (500) → 500 (29.486956ms)
+  ✔ el rol staff de Auth puede operar sobre pagos ajenos; organizador no (46.959563ms)
+  ✔ fail-secure: si Auth no responde, 503 AUTH_NO_DISPONIBLE y no se crea el pago (33.22426ms)
+  ✔ en cada petición consulta a Auth, aunque no venga cookie o venga un Bearer: Auth decide (401) (30.033876ms)
+[pagos] (broker mock) evento pago.anulado del pago 20515138-020b-468e-a99a-5bafc41c508e
+  ✔ staff consulta y reembolsa pagos ajenos, pero no los paga ni elige el destinatario (48.341719ms)
+✔ Auth ↔ Pagos v1.3: validar sesión (cookie jwt + x-api-key) (317.527111ms)
 ▶ Comprar para otra persona (destinatario)
-  ✔ la búsqueda por correo se retiró (Auth v1.3 no la expone): 404 de ruta (3.315799ms)
-[pagos] (broker mock) evento pago.realizado del pago 2ce106d4-f93f-4efa-8cd7-fcf4f3347818
-[pagos] (broker mock) evento pago.completado del pago 2ce106d4-f93f-4efa-8cd7-fcf4f3347818
-  ✔ el dueño registra un destinatario ingresado a mano; queda en el pago y en el evento pago.realizado (15.533976ms)
-[pagos] (broker mock) evento pago.realizado del pago 4c3849e3-f87f-4e08-b9c0-3e2386d12a40
-[pagos] (broker mock) evento pago.completado del pago 4c3849e3-f87f-4e08-b9c0-3e2386d12a40
-  ✔ valida los datos (RUT con dígito verificador) y solo lo permite al dueño con el pago PENDIENTE (21.44838ms)
-  ✔ DELETE /{id_pago}/destinatario vuelve la entrada al comprador (12.183725ms)
-  ✔ normaliza y verifica RUT chilenos (0.280629ms)
-✔ Comprar para otra persona (destinatario) (52.998888ms)
+  ✔ la búsqueda por correo se retiró (Auth v1.3 no la expone): 404 de ruta (3.968933ms)
+[pagos] (broker mock) evento pago.realizado del pago 5f347c4b-f4cd-4a31-a7a6-67f3a83e3d9d
+[pagos] (broker mock) evento pago.completado del pago 5f347c4b-f4cd-4a31-a7a6-67f3a83e3d9d
+  ✔ el dueño registra un destinatario ingresado a mano; queda en el pago y en el evento pago.realizado (23.643579ms)
+[pagos] (broker mock) evento pago.realizado del pago a5291cd1-1569-454b-b128-078f67433e8a
+[pagos] (broker mock) evento pago.completado del pago a5291cd1-1569-454b-b128-078f67433e8a
+  ✔ valida los datos (RUT con dígito verificador) y solo lo permite al dueño con el pago PENDIENTE (22.776571ms)
+  ✔ DELETE /{id_pago}/destinatario vuelve la entrada al comprador (16.697658ms)
+  ✔ normaliza y verifica RUT chilenos (0.614986ms)
+✔ Comprar para otra persona (destinatario) (68.046642ms)
 ▶ Promociones ↔ Pagos: código de descuento y evento pago.completado
-  ✔ guarda id_evento y nombre_codigo y los devuelve al consultar el pago (51.603025ms)
-[pagos] (broker mock) evento pago.realizado del pago eade0f42-bea5-4a1d-b192-6f3f82d05090 (código DESC50)
-[pagos] (broker mock) evento pago.completado del pago eade0f42-bea5-4a1d-b192-6f3f82d05090 (código DESC50)
-  ✔ al aprobarse publica pago.realizado (Entradas) y pago.completado (Promociones) con los campos del contrato (16.071369ms)
-[pagos] (broker mock) evento pago.realizado del pago 636a564f-b01a-4ab8-80d5-3c3cfe2a6373
-[pagos] (broker mock) evento pago.completado del pago 636a564f-b01a-4ab8-80d5-3c3cfe2a6373
-  ✔ sin código igual se publica pago.completado, con nombre_codigo null (Promociones lo ignora) (13.470636ms)
-[pagos] (broker mock) evento pago.anulado del pago a87c0707-1481-4dd3-b49b-851e7b884642 (código DESC50)
-  ✔ un pago rechazado o anulado no publica pago.completado (no se consume el cupón) (9.713342ms)
-  ✔ valida nombre_codigo (texto de hasta 50 caracteres); vacío o null = sin código (15.59997ms)
-  ✔ idempotencia: reintentar sin código devuelve el mismo pago; con otro código es conflicto (409) (16.742188ms)
-  ✔ con BROKER_CLAVE_PROMOCIONES vacío no se publica el evento para Promociones (0.304753ms)
-✔ Promociones ↔ Pagos: código de descuento y evento pago.completado (209.010394ms)
+  ✔ guarda id_evento y nombre_codigo y los devuelve al consultar el pago (82.037069ms)
+[pagos] (broker mock) evento pago.realizado del pago bb10f055-3a0d-4fd9-b475-8b473e2d38d4 (código DESC50)
+[pagos] (broker mock) evento pago.completado del pago bb10f055-3a0d-4fd9-b475-8b473e2d38d4 (código DESC50)
+  ✔ al aprobarse publica pago.realizado (Entradas) y pago.completado (Promociones) con los campos del contrato (31.675929ms)
+[pagos] (broker mock) evento pago.realizado del pago c481602f-8d5e-4330-a7a4-a40aab6cd828
+[pagos] (broker mock) evento pago.completado del pago c481602f-8d5e-4330-a7a4-a40aab6cd828
+  ✔ sin código igual se publica pago.completado, con nombre_codigo null (Promociones lo ignora) (23.04758ms)
+[pagos] (broker mock) evento pago.anulado del pago 93a959ff-c374-4b1a-a4d1-38e28b284e69 (código DESC50)
+  ✔ un pago rechazado o anulado no publica pago.completado (no se consume el cupón) (16.560492ms)
+  ✔ valida nombre_codigo (texto de hasta 50 caracteres); vacío o null = sin código (22.794491ms)
+  ✔ idempotencia: reintentar sin código devuelve el mismo pago; con otro código es conflicto (409) (12.335733ms)
+  ✔ con BROKER_CLAVE_PROMOCIONES vacío no se publica el evento para Promociones (0.441174ms)
+✔ Promociones ↔ Pagos: código de descuento y evento pago.completado (309.320793ms)
 ▶ Promociones ↔ Pagos: el código también puede venir desde Entradas
-  ✔ si Entradas informa el código en la reserva, Pagos lo guarda aunque no venga en el body (16.805436ms)
-  ✔ si el código del body no coincide con el de Entradas responde 422 ORDEN_INCONSISTENTE (3.66717ms)
-✔ Promociones ↔ Pagos: el código también puede venir desde Entradas (66.253696ms)
+  ✔ si Entradas informa el código en la reserva, Pagos lo guarda aunque no venga en el body (17.716412ms)
+  ✔ si el código del body no coincide con el de Entradas responde 422 ORDEN_INCONSISTENTE (5.113012ms)
+✔ Promociones ↔ Pagos: el código también puede venir desde Entradas (76.801942ms)
 ▶ RabbitMQ real: Pagos publica y otro servicio consume
-  ✔ al aprobarse el pago, la cola del consumidor recibe pago.realizado (102.726425ms)
-✔ RabbitMQ real: Pagos publica y otro servicio consume (287.272265ms)
+  ✔ al aprobarse el pago, la cola del consumidor recibe pago.realizado (158.042532ms)
+✔ RabbitMQ real: Pagos publica y otro servicio consume (388.208545ms)
 ▶ Validación de DTOs
-  ✔ acepta una orden de compra válida (1.052477ms)
-  ✔ rechaza total negativo, decimal o como texto (0.221983ms)
-  ✔ informa todos los campos obligatorios faltantes a la vez (id_evento es opcional) (0.157139ms)
-  ✔ exige motivo de 3 a 255 caracteres para reembolsar (0.155777ms)
-  ✔ valida que id_pago sea un UUID (0.408459ms)
-  ✔ aplica valores por defecto y valida filtros del listado (0.209718ms)
-✔ Validación de DTOs (2.970668ms)
+  ✔ acepta una orden de compra válida (1.608508ms)
+  ✔ rechaza total negativo, decimal o como texto (0.364853ms)
+  ✔ informa todos los campos obligatorios faltantes a la vez (id_evento es opcional) (0.23343ms)
+  ✔ exige motivo de 3 a 255 caracteres para reembolsar (0.159934ms)
+  ✔ valida que id_pago sea un UUID (0.616241ms)
+  ✔ aplica valores por defecto y valida filtros del listado (0.307409ms)
+✔ Validación de DTOs (4.220613ms)
 ▶ JWT del Auth simulado (herramienta de desarrollo; Pagos no valida JWT)
-  ✔ verifica un token válido y devuelve sus claims (0.56234ms)
-  ✔ rechaza firma alterada, secreto distinto y token expirado (0.643938ms)
-✔ JWT del Auth simulado (herramienta de desarrollo; Pagos no valida JWT) (1.365308ms)
+  ✔ verifica un token válido y devuelve sus claims (0.746416ms)
+  ✔ rechaza firma alterada, secreto distinto y token expirado (1.995105ms)
+✔ JWT del Auth simulado (herramienta de desarrollo; Pagos no valida JWT) (2.976118ms)
 ▶ Integración Stripe (sin red)
-  ✔ codifica objetos anidados como formulario de Stripe (1.099308ms)
-  ✔ crea el checkout en CLP sin multiplicar por 100 (13.55141ms)
-  ✔ crea el PaymentIntent del formulario en CLP y traduce su estado (0.881898ms)
-  ✔ traduce el estado de la sesión y los errores de Stripe (1.968093ms)
-  ✔ acepta un webhook con firma válida y rechaza firmas inválidas o antiguas (0.601872ms)
-✔ Integración Stripe (sin red) (18.283029ms)
-ℹ tests 92
+  ✔ codifica objetos anidados como formulario de Stripe (0.406021ms)
+  ✔ crea el checkout en CLP sin multiplicar por 100 (18.349195ms)
+  ✔ crea el PaymentIntent del formulario en CLP y traduce su estado (2.511294ms)
+  ✔ traduce el estado de la sesión y los errores de Stripe (1.30498ms)
+  ✔ acepta un webhook con firma válida y rechaza firmas inválidas o antiguas (0.805147ms)
+✔ Integración Stripe (sin red) (23.610229ms)
+ℹ tests 94
 ℹ suites 20
-ℹ pass 92
+ℹ pass 94
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 4073.184633
+ℹ duration_ms 5976.466734

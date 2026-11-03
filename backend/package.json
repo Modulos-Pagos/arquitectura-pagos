@@ -20,7 +20,8 @@
     "postman:env": "tsx scripts/generar-entorno-postman.ts",
     "test": "node --import tsx --test --test-concurrency=1 \"tests/**/*.test.ts\"",
     "test:evidencia": "node --import tsx --test --test-concurrency=1 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=spec --test-reporter-destination=docs/evidencias/pruebas-funcionales.txt --test-reporter=junit --test-reporter-destination=docs/evidencias/pruebas-funcionales.junit.xml \"tests/**/*.test.ts\"",
-    "test:integracion": "newman run postman/Pagos-TITEC.postman_collection.json -e postman/pagos-local.postman_environment.json --reporters cli,junit --reporter-junit-export docs/evidencias/postman-integracion.junit.xml"
+    "test:integracion": "newman run postman/Pagos-TITEC.postman_collection.json -e postman/pagos-local.postman_environment.json --reporters cli,junit --reporter-junit-export docs/evidencias/postman-integracion.junit.xml",
+    "evidencia:integraciones": "tsx scripts/evidencia-integraciones.ts"
   },
   "dependencies": {
     "amqplib": "^0.10.9",

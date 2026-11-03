@@ -28,6 +28,7 @@ export function configPruebas(): Config {
   process.env.BROKER_MODO = 'mock';
   process.env.PREFIJO_GATEWAY = '/api/pagos';
   process.env.DATABASE_SSL = 'false';
+  process.env.LOG_INTEGRACIONES ??= 'false';
   return cargarConfig();
 }
 

@@ -6,6 +6,18 @@ informa el estado del pago (consulta y eventos en RabbitMQ) y permite reembolsos
 
 Equipo y responsables por rol: [`RESPONSABLES.md`](RESPONSABLES.md).
 
+## Evaluación 2 — Interoperabilidad
+
+| Qué | Dónde |
+|---|---|
+| Integraciones declaradas (I1: Entradas, tipo A · I2: Auth, tipo C) | [`INTEGRACIONES.md`](INTEGRACIONES.md) |
+| Responsables por rol (BE1, BD1, UI1, GE1, CA1) | [`RESPONSABLES.md`](RESPONSABLES.md) |
+| Contratos vigentes | [`docs/contratos/`](docs/contratos): Entradas v2.4, Auth v1.4, Promociones v1.1 |
+| Pruebas contra los servicios reales y evidencia con fecha | [`backend/postman/Integraciones-reales.postman_collection.json`](backend/postman/Integraciones-reales.postman_collection.json), `npm run evidencia:integraciones` → [`backend/docs/evidencias/integraciones/`](backend/docs/evidencias/integraciones) |
+| Consultas SQL de la integración | [`backend/docs/evidencias/consultas-integraciones.sql`](backend/docs/evidencias/consultas-integraciones.sql) |
+| Ítems de gestión y guion de la presentación | [`docs/gestion/`](docs/gestion) |
+| Levantar todo junto y probar (Docker, Gateway, RabbitMQ, Auth, Entradas, front común) | [`docs/gestion/levantar-y-probar-windows.md`](docs/gestion/levantar-y-probar-windows.md) · [`INTEGRACION.md`](INTEGRACION.md) |
+
 | Carpeta | Contenido | Puerto |
 |---|---|---|
 | [`backend/`](backend) | Microservicio (Node.js 22, TypeScript, Express, PostgreSQL/Supabase, Stripe, RabbitMQ) | 3004 (`npm run dev` y Docker) |
@@ -38,7 +50,7 @@ Detalle en [`backend/README.md`](backend/README.md) § 6. Pasos para levantar to
 | **UI1–UI2** Aplicación | [`frontend/`](frontend) |
 | **UI3** Estándar de UI acordado | [`frontend/ESTANDARES_UI.md`](frontend/ESTANDARES_UI.md), [`frontend/docs/Checklist_Consistencia_Visual.docx`](frontend/docs/Checklist_Consistencia_Visual.docx) |
 | **GE1–GE4** Planificación, historias, avance e integración | [Issues](https://github.com/Modulos-Pagos/arquitectura-pagos/issues), [Milestones (sprints)](https://github.com/Modulos-Pagos/arquitectura-pagos/milestones), [Project "Progreso Modulo de Pagos"](https://github.com/orgs/Modulos-Pagos/projects/1), ítems de integración `INT-01` a `INT-05`, [contratos](docs/contratos) |
-| **CA1** Pruebas de funcionalidad | [`backend/tests/`](backend/tests) (92 pruebas), resultado en [`pruebas-funcionales.txt`](backend/docs/evidencias/pruebas-funcionales.txt) y [`pruebas-funcionales.junit.xml`](backend/docs/evidencias/pruebas-funcionales.junit.xml) |
+| **CA1** Pruebas de funcionalidad | [`backend/tests/`](backend/tests) (94 pruebas), resultado en [`pruebas-funcionales.txt`](backend/docs/evidencias/pruebas-funcionales.txt) y [`pruebas-funcionales.junit.xml`](backend/docs/evidencias/pruebas-funcionales.junit.xml) |
 | **CA2** Pruebas de integración | Colección Postman en [`backend/postman/`](backend/postman) (37 casos, 61 aserciones), resultado en [`postman-integracion.txt`](backend/docs/evidencias/postman-integracion.txt) y [`postman-integracion.junit.xml`](backend/docs/evidencias/postman-integracion.junit.xml); eventos en RabbitMQ: [`prueba-rabbitmq-docker.txt`](backend/docs/evidencias/prueba-rabbitmq-docker.txt) |
 
 ## Cómo ejecutar
@@ -95,7 +107,7 @@ Swagger no puede enviar cookies desde el navegador: los endpoints protegidos se 
 ### Pruebas
 ```bash
 cd backend
-npm test                 # 91 pruebas (requiere la BD de prueba DATABASE_URL_TEST); 92 con RABBITMQ_URL_TEST
+npm test                 # 93 pruebas (requiere la BD de prueba DATABASE_URL_TEST); 94 con RABBITMQ_URL_TEST
 npm run test:integracion # colección Postman (37 casos, 61 aserciones) con Newman; backend con PASARELA=mock y el Auth simulado corriendo
 ```
 

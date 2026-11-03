@@ -30,6 +30,12 @@ export const API_PAGOS = (process.env.NEXT_PUBLIC_PAGOS_API_URL || `${GATEWAY_UR
 export const URL_LOGIN =
   process.env.NEXT_PUBLIC_LOGIN_URL || `${(process.env.NEXT_PUBLIC_PORTAL_URL ?? '').replace(/\/+$/, '')}/login`;
 
+/** Portal común de TicketU (front común). Desde la confirmación se vuelve a sus módulos. */
+const PORTAL = (process.env.NEXT_PUBLIC_PORTAL_URL ?? '').replace(/\/+$/, '');
+/** Módulo Entradas del front común ("Ver mis entradas"). */
+export const URL_ENTRADAS = `${PORTAL}/entradas`;
+export const URL_INICIO = PORTAL || '/';
+
 /** URL de login con `volver` = la página actual, para regresar al checkout después de iniciar sesión. */
 export function urlLogin(): string {
   if (typeof window === 'undefined') return URL_LOGIN;
@@ -40,6 +46,29 @@ export function urlLogin(): string {
 /** Sesión ausente, vencida o revocada: se envía al usuario a iniciar sesión en Auth. */
 export function irALogin(): void {
   if (typeof window !== 'undefined') window.location.assign(urlLogin());
+}
+
+/**
+ * Mensajes para el usuario según el código de error del backend (UI1: sin datos técnicos ni ids,
+ * y si otro módulo falla se informa de forma comprensible). El código queda en ErrorApi.codigo.
+ */
+const MENSAJES: Record<string, string> = {
+  AUTH_NO_DISPONIBLE: 'No pudimos verificar tu sesión en este momento. No se realizó ningún cobro; inténtalo de nuevo en unos minutos.',
+  SERVICIO_NO_AUTORIZADO: 'El servicio de pagos no está disponible en este momento. No se realizó ningún cobro; inténtalo más tarde.',
+  ENTRADAS_NO_DISPONIBLE: 'No pudimos confirmar tu reserva con el sistema de entradas. No se realizó ningún cobro; inténtalo de nuevo en unos minutos.',
+  RESERVA_NO_ENCONTRADA: 'No encontramos tu reserva. Puede que haya vencido: vuelve a elegir tus entradas.',
+  ORDEN_INCONSISTENTE: 'El monto no coincide con tu reserva. Vuelve a elegir tus entradas para continuar.',
+  CONFLICTO_IDEMPOTENCIA: 'Esta reserva ya tiene un pago con otros datos. Vuelve a elegir tus entradas.',
+  ERROR_PASARELA: 'El procesador de pagos no respondió. No se realizó ningún cobro; inténtalo de nuevo.',
+  NO_AUTORIZADO: 'Este pago pertenece a otra cuenta.',
+  PAGO_NO_ENCONTRADO: 'No encontramos este pago. Vuelve a elegir tus entradas.',
+  PAGO_NO_EDITABLE: 'Este pago ya no se puede modificar.',
+  VALIDACION_FALLIDA: 'Algunos datos de la compra no son válidos. Revísalos e inténtalo de nuevo.',
+};
+const MENSAJE_GENERICO = 'Tuvimos un problema al procesar tu solicitud. No se realizó ningún cobro; inténtalo de nuevo en unos minutos.';
+
+export function mensajeAmigable(codigo?: string): string {
+  return (codigo && MENSAJES[codigo]) || MENSAJE_GENERICO;
 }
 
 export type EstadoPago = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'ANULADO' | 'REEMBOLSADO';
@@ -110,16 +139,15 @@ async function llamar<T>(metodo: 'GET' | 'POST' | 'PUT' | 'DELETE', ruta: string
       body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
     });
   } catch {
-    throw new ErrorApi(`No se pudo conectar con el servicio de pagos (${API_PAGOS}). ¿Están corriendo el Gateway y pagos-service?`, 0);
+    throw new ErrorApi('No pudimos conectarnos con el servicio de pagos. Revisa tu conexión e inténtalo de nuevo en unos minutos.', 0);
   }
   const datos = (await respuesta.json().catch(() => ({}))) as Record<string, unknown>;
   if (!respuesta.ok) {
-    const detalles = Array.isArray(datos.detalles) ? ` (${(datos.detalles as string[]).join('; ')})` : '';
     if (respuesta.status === 401) {
       irALogin(); // contrato Auth v1.3: con 401 el frontend redirige a /login
       throw new ErrorApi('Tu sesión no es válida o expiró. Te llevamos a iniciar sesión en TicketU…', 401, datos.error as string);
     }
-    throw new ErrorApi(`${String(datos.mensaje ?? 'Error del servicio de pagos')}${detalles}`, respuesta.status, datos.error as string);
+    throw new ErrorApi(mensajeAmigable(datos.error as string | undefined), respuesta.status, datos.error as string);
   }
   return datos as T;
 }
@@ -130,7 +158,7 @@ export function obtenerPerfil(): Promise<PerfilComprador> {
 
 export function crearTransaccion(orden: {
   id_reserva: string;
-  id_evento: string;
+  id_evento?: string;
   total: number;
   cantidad_entradas: number;
 }): Promise<TransaccionCreada> {

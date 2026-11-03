@@ -205,8 +205,8 @@ Swagger UI no puede enviar cookies desde el navegador: los endpoints protegidos 
 
 | Comando | Qué hace |
 |---|---|
-| `npm test` | 91 pruebas funcionales y unitarias (`node:test`) contra PostgreSQL real (BD `DATABASE_URL_TEST`, se reinicia en cada corrida). Incluye `tests/plataforma.test.ts` (rutas del Gateway, eventos, Auth y destinatario) y `tests/promociones.test.ts` (código de descuento y `pago.completado`) |
-| `RABBITMQ_URL_TEST=amqp://ticketu:ticketu_dev@localhost:5672/ticketu npm test` | Además ejecuta `tests/rabbitmq.test.ts` contra un RabbitMQ real (usuario y vhost del Platform Team): una cola recibe `pago.realizado` (Entradas) y otra `pago.completado` (Promociones) (92 pruebas) |
+| `npm test` | 93 pruebas funcionales y unitarias (`node:test`) contra PostgreSQL real (BD `DATABASE_URL_TEST`, se reinicia en cada corrida). Incluye `tests/plataforma.test.ts` (rutas del Gateway, eventos, Auth y destinatario) y `tests/promociones.test.ts` (código de descuento y `pago.completado`) |
+| `RABBITMQ_URL_TEST=amqp://ticketu:ticketu_dev@localhost:5672/ticketu npm test` | Además ejecuta `tests/rabbitmq.test.ts` contra un RabbitMQ real (usuario y vhost del Platform Team): una cola recibe `pago.realizado` (Entradas) y otra `pago.completado` (Promociones) (94 pruebas) |
 | `npm run test:evidencia` | Igual, y guarda el resultado en `docs/evidencias/` (evidencia CA1) |
 | `npm run test:integracion` | Ejecuta la colección Postman con Newman (servicio levantado con `PASARELA=mock`) y guarda el JUnit en `docs/evidencias/` (evidencia CA2) |
 
@@ -215,6 +215,20 @@ y 61 aserciones: creación, request de Entradas v2.3 (cookie jwt; Bearer rechaza
 eliminación (DELETE), código de descuento para Promociones (`nombre_codigo`, por las rutas del Gateway `/api/pagos`) y perfil/destinatario. Usa `Cookie: jwt=...` con tokens del Auth simulado (Pagos con `AUTH_BASE_URL` apuntando al simulado).
 Importarla junto a [`postman/pagos-local.postman_environment.json`](postman/pagos-local.postman_environment.json) y usar **Run collection**.
 Para correrla: `npm run auth:simulado` y `npm run dev` (con `PASARELA=mock`). Si cambian `AUTH_SIMULADO_SECRETO`, regenerar el entorno con `npm run postman:env`. Con Auth real, reemplazar los tokens del entorno por cookies `jwt` emitidas por Auth.
+
+### Evidencia de las integraciones (Evaluación 2)
+
+`npm run evidencia:integraciones` ejecuta la colección [`postman/Integraciones-reales.postman_collection.json`](postman/Integraciones-reales.postman_collection.json)
+contra los servicios **reales** de Auth y Entradas (por el Gateway) y guarda en `docs/evidencias/integraciones/<fecha>/` el estado
+de Pagos, las consultas SQL antes y después, el resultado de Postman y las líneas `[integración]` del log. Variables `EVIDENCIA_*` en
+[`.env.example`](.env.example); detalle en [`../INTEGRACIONES.md`](../INTEGRACIONES.md).
+
+Cada llamada a otro módulo deja una línea en el log (sin token ni datos personales), por ejemplo:
+
+```
+[pagos] [integración] 2026-11-04T13:10:05.123Z Entradas GET /api/entradas/reservas/hold-AB12 → 200 (total 15000, cantidad 2) (34 ms)
+[pagos] [integración] 2026-11-04T13:10:05.101Z Auth GET /internal/validar-sesion → 200 valido=true id_usuario=3f1e… rol=usuario (12 ms)
+```
 
 ## 5. Base de datos
 

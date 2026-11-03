@@ -1,4 +1,5 @@
 import { errores } from '../errores';
+import { registrarIntegracion } from '../utils/log-integracion';
 
 /**
  * INVOCACIÓN A AUTH — contrato «Auth ↔ Pagos» v1.3 (CONTRATO_INTEGRACION_AUTH.md del equipo Auth).
@@ -65,6 +66,9 @@ export class AuthClient {
     // es Auth quien responde 401.
     const headers: Record<string, string> = { Accept: 'application/json', 'x-api-key': this.opciones.apiKey };
     if (cookieHeader) headers.Cookie = cookieHeader;
+    const operacion = `GET ${RUTA_VALIDAR_SESION}`;
+    const inicio = performance.now();
+    const fallo = (resultado: string) => registrarIntegracion('Auth', operacion, resultado, inicio);
     let respuesta: Response;
     try {
       respuesta = await this.fetch(`${this.opciones.baseUrl}${RUTA_VALIDAR_SESION}`, {
@@ -74,29 +78,50 @@ export class AuthClient {
       });
     } catch (error) {
       const nombre = (error as Error).name;
-      throw errores.authNoDisponible(nombre === 'TimeoutError' ? 'tiempo de espera agotado' : 'servicio no alcanzable');
+      const motivo = nombre === 'TimeoutError' ? 'tiempo de espera agotado' : 'servicio no alcanzable';
+      fallo(`sin respuesta: ${motivo} → 503 AUTH_NO_DISPONIBLE`);
+      throw errores.authNoDisponible(motivo);
     }
 
-    if (respuesta.status === 401) throw errores.noAutenticado('Sesión ausente, inválida, expirada o revocada');
-    if (respuesta.status === 403) throw errores.servicioNoAutorizado();
-    if (respuesta.status === 500) throw errores.errorAuth();
-    if (!respuesta.ok) throw errores.authNoDisponible(`respondió HTTP ${respuesta.status}`);
+    if (respuesta.status === 401) {
+      fallo('401 → 401 NO_AUTENTICADO');
+      throw errores.noAutenticado('Sesión ausente, inválida, expirada o revocada');
+    }
+    if (respuesta.status === 403) {
+      fallo('403 → 403 SERVICIO_NO_AUTORIZADO');
+      throw errores.servicioNoAutorizado();
+    }
+    if (respuesta.status === 500) {
+      fallo('500 → 500 ERROR_INTERNO');
+      throw errores.errorAuth();
+    }
+    if (!respuesta.ok) {
+      fallo(`${respuesta.status} → 503 AUTH_NO_DISPONIBLE`);
+      throw errores.authNoDisponible(`respondió HTTP ${respuesta.status}`);
+    }
 
     let cuerpo: Record<string, unknown>;
     try {
       cuerpo = (await respuesta.json()) as Record<string, unknown>;
     } catch {
+      fallo(`${respuesta.status} sin JSON → 503 AUTH_NO_DISPONIBLE`);
       throw errores.authNoDisponible('respuesta sin JSON válido');
     }
     const usuario = (cuerpo.usuario ?? {}) as Record<string, unknown>;
     const id = texto(usuario.id_usuario);
-    if (cuerpo.valido !== true || !id) throw errores.noAutenticado('Auth no confirmó la sesión');
+    if (cuerpo.valido !== true || !id) {
+      fallo(`${respuesta.status} incompleta → 401 NO_AUTENTICADO`);
+      throw errores.noAutenticado('Auth no confirmó la sesión');
+    }
+    const rol = (texto(usuario.rol) ?? 'usuario').toLowerCase();
+    // Solo el id de referencia y el rol: nunca el token, el nombre, el RUT ni el correo.
+    registrarIntegracion('Auth', operacion, `${respuesta.status} valido=true id_usuario=${id} rol=${rol}`, inicio);
     return {
       id_usuario: id,
       nombre_completo: texto(usuario.nombre_completo) ?? '',
       rut: texto(usuario.rut) ?? '',
       correo_electronico: texto(usuario.correo_electronico) ?? '',
-      rol: (texto(usuario.rol) ?? 'usuario').toLowerCase(),
+      rol,
     };
   }
 }

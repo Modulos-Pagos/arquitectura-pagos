@@ -66,6 +66,8 @@ export interface PagoExistente {
   id_reserva: string;
   monto: number;
   client_secret: string;
+  /** Cantidad de entradas de la reserva de Entradas (para el resumen). */
+  cantidad?: number;
 }
 
 /** Sesión del comprador validada con Auth (a través de Pagos, contrato Auth v1.3). */
@@ -214,7 +216,7 @@ export default function CheckoutForm({
       const trx = transaccion.current;
 
       if (trx.estado_pago === 'PENDIENTE') {
-        if (!trx.client_secret) throw new ErrorApi('El servicio de pagos no entregó el client_secret.', 500);
+        if (!trx.client_secret) throw new ErrorApi('No pudimos preparar el pago. Inténtalo de nuevo en unos minutos.', 500);
 
         // 2a. Guardar para quién es la entrada (Entradas la emite a su nombre con el evento pago.realizado)
         await sincronizarDestinatario(trx.id_pago);

@@ -4,7 +4,7 @@ import { calcularTotales, formatoCLP, type Pedido } from '@/lib/pedido';
 interface OrderSummaryProps {
   pedido: Pedido;
   /** Pago creado por Entradas: se muestra la reserva y el total informado por el microservicio. */
-  existente?: { id_reserva: string; monto: number } | null;
+  existente?: { id_reserva: string; monto: number; cantidad?: number } | null;
   /** true mientras se carga un pago existente (?id_pago=): no se muestra el pedido de ejemplo. */
   cargando?: boolean;
 }
@@ -33,7 +33,9 @@ export default function OrderSummary({ pedido, existente = null, cargando = fals
       <div className="bg-white rounded-xl border border-ticket-border overflow-hidden shadow-tarjeta">
         <div className="bg-ticket-primary text-white p-5">
           <h2 className="font-heading font-bold text-xl">Resumen del pedido</h2>
-          <p className="text-xs text-white/85 mt-1">Reserva {existente.id_reserva}</p>
+          <p className="text-xs text-white/85 mt-1">
+            {existente.cantidad ? `${existente.cantidad} ${existente.cantidad === 1 ? 'entrada' : 'entradas'}` : 'Tu compra en TicketU'}
+          </p>
         </div>
         <div className="p-5 flex flex-col gap-4 text-sm">
           <div className="flex justify-between items-center bg-ticket-card p-4 rounded-[8px] border border-ticket-border">

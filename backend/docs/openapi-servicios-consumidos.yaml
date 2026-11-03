@@ -39,6 +39,16 @@ paths:
         `total`, `cantidad_entradas` e `id_evento` coinciden con lo registrado por Entradas.
         Se reenvía el mismo header `Cookie` (`jwt=...`) recibido, para que Entradas valide la sesión con Auth. Timeout: `ENTRADAS_TIMEOUT_MS` (500 ms por defecto,
         para respetar el SLA de 2000 ms).
+
+        Lector tolerante: además de los nombres del contrato acepta los que usa el API de reservas de Entradas
+        (`monto_total`, `cantidad_entrada`, `hold_id`, `estado_reserva`) y una respuesta envuelta en `data`.
+
+        | Respuesta de Entradas | Pagos responde a quien creó el pago |
+        |---|---|
+        | 200 y coincide | 201 (pago PENDIENTE) |
+        | 200 y no coincide el total, la cantidad, el evento o el código | 422 `ORDEN_INCONSISTENTE` (no se crea el pago) |
+        | 404 | 422 `RESERVA_NO_ENCONTRADA` |
+        | 5xx, sin JSON, sin `total`/`cantidad_entradas`, timeout o conexión rechazada | 503 `ENTRADAS_NO_DISPONIBLE` |
       servers:
         - url: http://entradas-service:3000
       security:

@@ -1,7 +1,7 @@
 'use client';
 
 import { CheckCircle2, Clock, XCircle } from 'lucide-react';
-import type { EstadoPago, Pago } from '@/lib/api';
+import { URL_ENTRADAS, URL_INICIO, type EstadoPago, type Pago } from '@/lib/api';
 import { formatoCLP } from '@/lib/pedido';
 import { formatoRut } from '@/lib/destinatario';
 
@@ -14,6 +14,14 @@ const TEXTOS: Record<EstadoPago, { titulo: string; detalle: string }> = {
   RECHAZADO: { titulo: 'Pago rechazado', detalle: 'No se realizó ningún cobro. Puedes intentarlo nuevamente.' },
   ANULADO: { titulo: 'Pago anulado', detalle: 'La compra fue anulada y no se realizó ningún cobro.' },
   REEMBOLSADO: { titulo: 'Pago reembolsado', detalle: 'El monto fue devuelto a tu tarjeta.' },
+};
+
+const ETIQUETA: Record<EstadoPago, string> = {
+  APROBADO: 'Aprobado',
+  PENDIENTE: 'En proceso',
+  RECHAZADO: 'Rechazado',
+  ANULADO: 'Anulado',
+  REEMBOLSADO: 'Reembolsado',
 };
 
 /** Colores de estado del estándar (filas 5 y 18): éxito, peligro e información. */
@@ -35,8 +43,7 @@ export default function Confirmacion({ pago }: { pago: Pago }) {
 
   const filas: Array<[string, string]> = [
     ['Monto', `${formatoCLP(pago.monto)} ${pago.moneda}`],
-    ['ID de pago', pago.id_pago],
-    ['Reserva', pago.id_reserva],
+    ['Código de compra', pago.id_pago.slice(0, 8).toUpperCase()],
     ['Fecha', new Date(pago.fecha_creacion).toLocaleString('es-CL')],
   ];
   if (pago.motivo_rechazo) filas.push(['Motivo', pago.motivo_rechazo]);
@@ -53,7 +60,7 @@ export default function Confirmacion({ pago }: { pago: Pago }) {
       <p className="text-sm text-ticket-secondary max-w-md">{texto.detalle}</p>
 
       {/* Badge de estado (pill, radio 999px) */}
-      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${tono.badge}`}>{pago.estado_pago}</span>
+      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${tono.badge}`}>{ETIQUETA[pago.estado_pago]}</span>
 
       <dl className="w-full max-w-md mt-2 divide-y divide-ticket-border border border-ticket-border rounded-lg text-sm text-left">
         {filas.map(([etiqueta, valor]) => (
@@ -64,13 +71,41 @@ export default function Confirmacion({ pago }: { pago: Pago }) {
         ))}
       </dl>
 
-      <button
-        type="button"
-        onClick={() => window.location.reload()}
-        className="mt-4 h-10 px-6 bg-ticket-primary text-white text-sm font-semibold rounded-lg hover:bg-ticket-hover transition-colors"
-      >
-        {pago.estado_pago === 'APROBADO' ? 'Hacer otra compra' : 'Volver a intentar'}
-      </button>
+      {/* Navegación entre módulos: después de pagar se vuelve a Entradas (ahí están las entradas con QR). */}
+      <div className="mt-4 flex flex-col sm:flex-row gap-3 justify-center">
+        {pago.estado_pago === 'APROBADO' ? (
+          <>
+            <a
+              href={URL_ENTRADAS}
+              className="h-10 px-6 bg-ticket-primary text-white text-sm font-semibold rounded-lg hover:bg-ticket-hover transition-colors flex items-center justify-center no-underline"
+            >
+              Ver mis entradas
+            </a>
+            <a
+              href={URL_INICIO}
+              className="h-10 px-6 border border-ticket-border text-ticket-primary text-sm font-semibold rounded-lg hover:bg-ticket-banner transition-colors flex items-center justify-center no-underline"
+            >
+              Volver al inicio
+            </a>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="h-10 px-6 bg-ticket-primary text-white text-sm font-semibold rounded-lg hover:bg-ticket-hover transition-colors"
+            >
+              Volver a intentar
+            </button>
+            <a
+              href={URL_ENTRADAS}
+              className="h-10 px-6 border border-ticket-border text-ticket-primary text-sm font-semibold rounded-lg hover:bg-ticket-banner transition-colors flex items-center justify-center no-underline"
+            >
+              Volver a Entradas
+            </a>
+          </>
+        )}
+      </div>
     </section>
   );
 }

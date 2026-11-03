@@ -1,3 +1,4 @@
+import { registrarIntegracion } from '../../utils/log-integracion';
 import amqp from 'amqplib';
 import type { MensajeBroker, PublicadorEventos } from './eventos';
 
@@ -48,6 +49,7 @@ export class PublicadorRabbitMQ implements PublicadorEventos {
   }
 
   async publicar(evento: MensajeBroker): Promise<void> {
+    const inicio = performance.now();
     const canal = await this.obtenerCanal();
     await new Promise<void>((ok, falla) => {
       const temporizador = setTimeout(() => falla(new Error('el broker no confirmó la publicación a tiempo')), this.opciones.timeoutMs);
@@ -65,8 +67,14 @@ export class PublicadorRabbitMQ implements PublicadorEventos {
         },
         (error) => {
           clearTimeout(temporizador);
-          if (error) falla(error instanceof Error ? error : new Error(String(error)));
-          else ok();
+          if (error) {
+            registrarIntegracion('RabbitMQ', `publicar ${evento.tipo}`, `error: ${String((error as Error)?.message ?? error)}`, inicio);
+            falla(error instanceof Error ? error : new Error(String(error)));
+          } else {
+            const idPago = (evento as { id_pago?: string }).id_pago ?? '';
+            registrarIntegracion('RabbitMQ', `publicar ${evento.tipo}`, `confirmado (exchange ${this.opciones.exchange}, id_pago ${idPago}, id_mensaje ${evento.id_mensaje})`, inicio);
+            ok();
+          }
         },
       );
     });

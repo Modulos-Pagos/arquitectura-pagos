@@ -1,4 +1,5 @@
 import { errores } from '../errores';
+import { registrarIntegracion } from '../utils/log-integracion';
 
 /**
  * INVOCACIÓN A SERVICIO DE OTRO SQUAD — Entradas/Inventario (ítem BE2).
@@ -62,6 +63,8 @@ export class EntradasClient {
 
     const ruta = (this.opciones.rutaReserva ?? RUTA_RESERVA_POR_DEFECTO).replace('{id_reserva}', encodeURIComponent(idReserva));
     const url = `${this.opciones.baseUrl}${ruta}`;
+    const operacion = `GET ${ruta}`;
+    const inicio = performance.now();
     let respuesta: Response;
     try {
       respuesta = await this.fetch(url, {
@@ -71,31 +74,47 @@ export class EntradasClient {
       });
     } catch (error) {
       const nombre = (error as Error).name;
-      throw errores.entradasNoDisponible(nombre === 'TimeoutError' ? 'tiempo de espera agotado' : 'servicio no alcanzable');
+      const motivo = nombre === 'TimeoutError' ? 'tiempo de espera agotado' : 'servicio no alcanzable';
+      registrarIntegracion('Entradas', operacion, `sin respuesta: ${motivo} → 503 ENTRADAS_NO_DISPONIBLE`, inicio);
+      throw errores.entradasNoDisponible(motivo);
     }
 
-    if (respuesta.status === 404) throw errores.reservaNoEncontrada(idReserva);
-    if (!respuesta.ok) throw errores.entradasNoDisponible(`respondió HTTP ${respuesta.status}`);
+    if (respuesta.status === 404) {
+      registrarIntegracion('Entradas', operacion, '404 → 422 RESERVA_NO_ENCONTRADA', inicio);
+      throw errores.reservaNoEncontrada(idReserva);
+    }
+    if (!respuesta.ok) {
+      registrarIntegracion('Entradas', operacion, `${respuesta.status} → 503 ENTRADAS_NO_DISPONIBLE`, inicio);
+      throw errores.entradasNoDisponible(`respondió HTTP ${respuesta.status}`);
+    }
 
     let cuerpo: Record<string, unknown>;
     try {
       cuerpo = (await respuesta.json()) as Record<string, unknown>;
     } catch {
+      registrarIntegracion('Entradas', operacion, `${respuesta.status} sin JSON → 503 ENTRADAS_NO_DISPONIBLE`, inicio);
       throw errores.entradasNoDisponible('respuesta sin JSON válido');
     }
+    // Algunas respuestas vienen envueltas: { data: {...} } o { reserva: {...} }.
+    const interno = (cuerpo.data ?? cuerpo.reserva) as Record<string, unknown> | undefined;
+    if (interno && typeof interno === 'object' && !Array.isArray(interno)) cuerpo = { ...cuerpo, ...interno };
 
-    // Lector tolerante (Tolerant Reader): acepta nombres alternativos de campos.
-    const total = Number(cuerpo.total ?? cuerpo.monto);
-    const cantidad = Number(cuerpo.cantidad_entradas ?? cuerpo.cantidad);
+    // Lector tolerante (Tolerant Reader): acepta los nombres del contrato y los que usa el módulo
+    // Entradas en su API de reservas (monto_total, cantidad_entrada, hold_id, estado_reserva).
+    const total = Number(cuerpo.total ?? cuerpo.monto_total ?? cuerpo.monto);
+    const cantidad = Number(cuerpo.cantidad_entradas ?? cuerpo.cantidad_entrada ?? cuerpo.cantidad);
     if (!Number.isFinite(total) || !Number.isFinite(cantidad)) {
+      registrarIntegracion('Entradas', operacion, `${respuesta.status} incompleta → 503 ENTRADAS_NO_DISPONIBLE`, inicio);
       throw errores.entradasNoDisponible('la respuesta no trae total y cantidad_entradas');
     }
+    registrarIntegracion('Entradas', operacion, `${respuesta.status} (total ${total}, cantidad ${cantidad})`, inicio);
+    const estado = cuerpo.estado ?? cuerpo.estado_reserva;
     return {
-      id_reserva: String(cuerpo.id_reserva ?? idReserva),
-      id_evento: String(cuerpo.id_evento ?? ''),
+      id_reserva: String(cuerpo.id_reserva ?? cuerpo.hold_id ?? idReserva),
+      id_evento: cuerpo.id_evento === undefined || cuerpo.id_evento === null ? '' : String(cuerpo.id_evento),
       cantidad_entradas: cantidad,
       total,
-      estado: typeof cuerpo.estado === 'string' ? cuerpo.estado : undefined,
+      estado: typeof estado === 'string' ? estado : undefined,
       nombre_codigo:
         typeof (cuerpo.nombre_codigo ?? cuerpo.codigo) === 'string' && String(cuerpo.nombre_codigo ?? cuerpo.codigo).trim() !== ''
           ? String(cuerpo.nombre_codigo ?? cuerpo.codigo).trim()

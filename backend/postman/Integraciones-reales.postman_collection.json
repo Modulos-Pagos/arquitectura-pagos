@@ -1,0 +1,472 @@
+{
+  "info": {
+    "_postman_id": "d90f6f92-dfed-5219-9b1f-63e86dea8c9c",
+    "name": "Pagos — Integraciones reales (Evaluación 2)",
+    "description": "Pruebas de las dos integraciones declaradas en `INTEGRACIONES.md`, **contra los servicios reales** de Auth y Entradas a través del API Gateway (no usa mocks ni el Auth simulado).\n\n- **I2 (tipo C):** Pagos delega la autenticación en Auth (`GET /internal/validar-sesion`).\n- **I1 (tipo A):** Pagos consume la reserva de Entradas (`GET /api/entradas/reservas/{id_reserva}`) para validar el cobro.\n\nOrden: primero I2 (obtiene la sesión real) y luego I1. Cada request tiene su resultado esperado y tests automáticos; hay casos de éxito y de error en ambas.\n\nEjecutar con `npm run evidencia:integraciones` (guarda resultados, consultas SQL y logs con fecha en `docs/evidencias/integraciones/`).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "I2 — Auth: validar sesión (tipo C)",
+      "item": [
+        {
+          "name": "I2.1 Iniciar sesión en Auth (servicio real)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Auth responde 2xx al iniciar sesión', () => pm.expect(pm.response.code).to.be.within(200, 299));",
+                  "let jwt = pm.cookies.get('jwt');",
+                  "if (!jwt) {",
+                  "  const setCookie = pm.response.headers.all().filter(h => h.key.toLowerCase() === 'set-cookie').map(h => h.value).join(';');",
+                  "  const m = setCookie.match(/(?:^|[;,\\s])jwt=([^;]+)/);",
+                  "  if (m) jwt = m[1];",
+                  "}",
+                  "pm.test('Auth entrega la cookie jwt', () => pm.expect(jwt, 'cookie jwt en la respuesta de Auth').to.be.a('string').and.not.empty);",
+                  "if (jwt) pm.environment.set('sesionJwt', jwt);",
+                  "// La sesión se envía explícitamente (header Cookie) solo donde corresponde: se vacía el cookie jar",
+                  "// para que los casos de error (sin sesión, Bearer) no la manden sin querer.",
+                  "pm.cookies.jar().clear(pm.request.url, () => {});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{gatewayUrl}}{{authLoginPath}}",
+            "description": "**Resultado esperado:** 200 y la cookie `jwt` emitida por Auth.\n\nLa sesión la obtiene la propia colección (no se copia a mano): el token se toma del header Set-Cookie y se usa en las siguientes llamadas.\n\nRuta y cuerpo del login se configuran en el entorno (`authLoginPath`, `authLoginBody`) según el contrato del equipo Auth.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{authLoginBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "I2.2 Pagos valida la sesión con Auth → perfil del comprador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('trae el id_usuario y el rol que entrega Auth', () => {",
+                  "  pm.expect(b.id_usuario).to.be.a('string').and.not.empty;",
+                  "  pm.expect(['usuario', 'organizador', 'staff']).to.include(b.rol);",
+                  "});",
+                  "pm.test('trae nombre_completo, rut con puntos y correo', () => {",
+                  "  pm.expect(b.nombre_completo).to.be.a('string');",
+                  "  pm.expect(b.correo_electronico).to.include('@');",
+                  "  if (b.rut) pm.expect(b.rut).to.match(/^\\d{1,2}\\.\\d{3}\\.\\d{3}-[\\dkK]$/);",
+                  "});",
+                  "pm.test('no se cachea (Cache-Control: no-store)', () => pm.expect(pm.response.headers.get('Cache-Control') || '').to.include('no-store'));",
+                  "pm.environment.set('idUsuarioAuth', b.id_usuario);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/comprador/perfil",
+            "description": "**Resultado esperado:** 200. Pagos llama a `GET /internal/validar-sesion` de Auth reenviando la cookie y devuelve el perfil que entregó Auth (contrato Auth ↔ Pagos v1.4)."
+          }
+        },
+        {
+          "name": "I2.3 Error: sin sesión → 401 NO_AUTENTICADO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sin sesión', () => pm.response.to.have.status(401));",
+                  "pm.test('error NO_AUTENTICADO', () => pm.expect(pm.response.json().error).to.eql('NO_AUTENTICADO'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "tema=claro"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/comprador/perfil",
+            "description": "**Resultado esperado:** 401 `NO_AUTENTICADO`. Pagos igual consulta a Auth (regla 1) y Auth rechaza la petición sin cookie."
+          }
+        },
+        {
+          "name": "I2.4 Error: token no emitido por Auth → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 con un token falso', () => pm.response.to.have.status(401));",
+                  "pm.test('error NO_AUTENTICADO', () => pm.expect(pm.response.json().error).to.eql('NO_AUTENTICADO'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt=eyJhbGciOiJIUzI1NiJ9.eyJpZF91c3VhcmlvIjoiaW50cnVzbyJ9.firma-falsa"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/comprador/perfil",
+            "description": "**Resultado esperado:** 401 `NO_AUTENTICADO`. Un JWT firmado por otro (no por Auth) no sirve: Pagos no valida JWT por su cuenta, se lo pregunta a Auth (reglas 1 y 6)."
+          }
+        },
+        {
+          "name": "I2.5 Error: Authorization Bearer no se acepta → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 con Bearer', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/comprador/perfil",
+            "description": "**Resultado esperado:** 401. La sesión solo viaja en la cookie `jwt` (contrato v1.4, regla 2)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "I1 — Entradas: verificar la reserva (tipo A)",
+      "item": [
+        {
+          "name": "I1.1 Crear una reserva en Entradas (servicio real)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const fija = pm.environment.get('idReservaFija');",
+                  "if (fija) {",
+                  "  pm.environment.set('idReservaI1', fija);",
+                  "  pm.environment.set('totalI1', Number(pm.environment.get('totalFijo')));",
+                  "  pm.environment.set('cantidadI1', Number(pm.environment.get('cantidad') || 1));",
+                  "  pm.test('Se usa la reserva fija ' + fija, () => pm.expect(fija).to.be.a('string'));",
+                  "} else {",
+                  "  pm.test('Entradas crea la reserva (2xx)', () => pm.expect(pm.response.code).to.be.within(200, 299));",
+                  "  let b = pm.response.json();",
+                  "  if (b && (b.data || b.reserva)) b = Object.assign({}, b, b.data || b.reserva);",
+                  "  const id = b.id_reserva || b.hold_id || b.id;",
+                  "  const total = Number(b.total ?? b.monto_total ?? b.monto);",
+                  "  const cantidad = Number(b.cantidad_entradas ?? b.cantidad_entrada ?? b.cantidad ?? pm.environment.get('cantidad'));",
+                  "  pm.test('la reserva trae id y total', () => {",
+                  "    pm.expect(id, 'id de la reserva').to.be.ok;",
+                  "    pm.expect(total, 'total de la reserva').to.be.a('number').and.above(0);",
+                  "  });",
+                  "  pm.environment.set('idReservaI1', String(id));",
+                  "  pm.environment.set('totalI1', total);",
+                  "  pm.environment.set('cantidadI1', cantidad);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}{{entradasCrearReservaPath}}",
+            "description": "**Resultado esperado:** 2xx con el id de la reserva y su total. Prepara los datos de la prueba en el módulo Entradas (no es parte de Pagos).\n\nLa ruta se configura en el entorno (`entradasCrearReservaPath`). Si ya tienen una reserva creada, pueden poner su id en `idReservaFija` y su total en `totalFijo`: la colección la usa en vez de la nueva.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{idEvento}}\",\n  \"id_usuario\": \"{{idUsuarioAuth}}\",\n  \"cantidad\": {{cantidad}},\n  \"tiempo_limite_minutos\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "I1.2 Consultar la reserva en Entradas (lo que Pagos va a verificar)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Entradas responde 200', () => pm.response.to.have.status(200));",
+                  "let b = pm.response.json();",
+                  "if (b && (b.data || b.reserva)) b = Object.assign({}, b, b.data || b.reserva);",
+                  "const total = Number(b.total ?? b.monto_total ?? b.monto);",
+                  "pm.test('el total coincide con el de la reserva creada', () => pm.expect(total).to.eql(Number(pm.environment.get('totalI1'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/entradas/reservas/{{idReservaI1}}",
+            "description": "**Resultado esperado:** 200 con el total y la cantidad de la reserva. Es el mismo servicio que invoca Pagos (contrato Pagos ↔ Entradas v2.4, operación 6)."
+          }
+        },
+        {
+          "name": "I1.3 Error: total distinto al de la reserva → 422 ORDEN_INCONSISTENTE",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('totalAlterado', Number(pm.environment.get('totalI1')) + 1000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('error ORDEN_INCONSISTENTE', () => pm.expect(pm.response.json().error).to.eql('ORDEN_INCONSISTENTE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/transacciones",
+            "description": "**Resultado esperado:** 422 `ORDEN_INCONSISTENTE`. Pagos consulta la reserva en Entradas y rechaza el cobro porque el total no coincide. No se crea ningún pago.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReservaI1}}\",\n  \"total\": {{totalAlterado}},\n  \"cantidad_entradas\": {{cantidadI1}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "I1.4 Pagos crea el pago verificando la reserva en Entradas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const b = pm.response.json();",
+                  "pm.test('pago PENDIENTE de la reserva de Entradas', () => {",
+                  "  pm.expect(b.estado_pago).to.eql('PENDIENTE');",
+                  "  pm.expect(b.id_reserva).to.eql(pm.environment.get('idReservaI1'));",
+                  "  pm.expect(b.id_pago).to.match(/^[0-9a-f-]{36}$/);",
+                  "});",
+                  "pm.environment.set('idPagoI1', b.id_pago);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/transacciones",
+            "description": "**Resultado esperado:** 201 con el pago PENDIENTE. Antes de crearlo, Pagos invoca `GET /api/entradas/reservas/{id}` y usa la respuesta (total, cantidad, evento) en su lógica.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReservaI1}}\",\n  \"total\": {{totalI1}},\n  \"cantidad_entradas\": {{cantidadI1}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "I1.5 Consultar el pago: guarda la referencia a Entradas y el usuario de Auth",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('monto igual al total de la reserva', () => pm.expect(b.monto).to.eql(Number(pm.environment.get('totalI1'))));",
+                  "pm.test('referencias a Entradas y Auth', () => {",
+                  "  pm.expect(b.id_reserva).to.eql(pm.environment.get('idReservaI1'));",
+                  "  pm.expect(b.id_usuario).to.eql(pm.environment.get('idUsuarioAuth'));",
+                  "});",
+                  "pm.test('estado y fecha', () => {",
+                  "  pm.expect(b.estado_pago).to.eql('PENDIENTE');",
+                  "  pm.expect(b.fecha_creacion).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/{{idPagoI1}}",
+            "description": "**Resultado esperado:** 200. El pago guarda solo referencias: `id_reserva` (Entradas), `id_evento` (tomado de la reserva) e `id_usuario` (Auth), con estado y fechas."
+          }
+        },
+        {
+          "name": "I1.6 Reintento idempotente: mismo pago, sin cobro doble",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 (reintento)', () => pm.response.to.have.status(200));",
+                  "pm.test('mismo id_pago', () => pm.expect(pm.response.json().id_pago).to.eql(pm.environment.get('idPagoI1')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/transacciones",
+            "description": "**Resultado esperado:** 200 con el mismo `id_pago` (contrato v2.4, sección 2.7).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReservaI1}}\",\n  \"total\": {{totalI1}},\n  \"cantidad_entradas\": {{cantidadI1}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "I1.7 Error: reserva que Entradas no conoce → 422 RESERVA_NO_ENCONTRADA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('error RESERVA_NO_ENCONTRADA', () => pm.expect(pm.response.json().error).to.eql('RESERVA_NO_ENCONTRADA'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/transacciones",
+            "description": "**Resultado esperado:** 422 `RESERVA_NO_ENCONTRADA`: Entradas responde 404 y Pagos no crea el pago.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"res-no-existe-{{$timestamp}}\",\n  \"total\": 1000,\n  \"cantidad_entradas\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -113,4 +113,47 @@ describe('Invocación a Entradas/Inventario (BE2)', () => {
     lento.closeAllConnections();
     await new Promise<void>((ok) => lento.close(() => ok()));
   });
+
+  it('lee también los nombres de campos del API de reservas de Entradas (monto_total, cantidad_entrada, hold_id)', async () => {
+    const respuestas = [
+      { hold_id: 'hold-AB12', id_evento: 7, cantidad_entrada: 2, monto_total: 15000, estado_reserva: 'RESERVADO' },
+      { data: { id_reserva: 'hold-AB12', id_evento: 'evt-7', cantidad_entradas: 2, total: 15000 } },
+    ];
+    for (const cuerpo of respuestas) {
+      const cliente = new EntradasClient({
+        modo: 'http',
+        baseUrl: 'http://entradas.test',
+        timeoutMs: 300,
+        fetchImpl: (async () => new Response(JSON.stringify(cuerpo), { status: 200, headers: { 'Content-Type': 'application/json' } })) as typeof fetch,
+      });
+      const orden = await cliente.obtenerOrden('hold-AB12');
+      assert.equal(orden?.total, 15000);
+      assert.equal(orden?.cantidad_entradas, 2);
+      assert.equal(orden?.id_reserva, 'hold-AB12');
+      assert.ok(orden?.id_evento === '7' || orden?.id_evento === 'evt-7');
+    }
+  });
+
+  it('deja una línea de log por llamada, sin la cookie ni el token (evidencia BE1)', async () => {
+    const anterior = process.env.LOG_INTEGRACIONES;
+    process.env.LOG_INTEGRACIONES = 'true';
+    const lineas: string[] = [];
+    const original = console.log;
+    console.log = (...args: unknown[]) => void lineas.push(args.join(' '));
+    try {
+      const cliente = new EntradasClient({
+        modo: 'http',
+        baseUrl: 'http://entradas.test',
+        timeoutMs: 300,
+        fetchImpl: (async () => new Response('{}', { status: 404 })) as typeof fetch,
+      });
+      await assert.rejects(cliente.obtenerOrden('res-404', 'jwt=token-secreto'));
+    } finally {
+      console.log = original;
+      process.env.LOG_INTEGRACIONES = anterior;
+    }
+    assert.equal(lineas.length, 1);
+    assert.match(lineas[0]!, /\[integración\] \d{4}-\d{2}-\d{2}T.* Entradas GET \/api\/entradas\/reservas\/res-404 → 404 → 422 RESERVA_NO_ENCONTRADA/);
+    assert.doesNotMatch(lineas[0]!, /token-secreto|jwt=/);
+  });
 });
