@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Pagos — Integraciones reales (Evaluación 2)" tests="12" time="0.356">
+  <testsuite name="I2 — Auth: validar sesión (tipo C) / I2.1 Iniciar sesión en Auth (servicio real)" id="37157fda-6cf2-4817-b1f1-6d9d040f8cb0" timestamp="2026-11-04T01:48:29.518Z" tests="2" failures="0" errors="0" time="0.108">
+    <testcase name="Auth responde 2xx al iniciar sesión" time="0.108" classname="I2AuthValidarSesionTipoCI21IniciarSesionEnAuthServicioReal"/>
+    <testcase name="Auth entrega la cookie jwt" time="0.108" classname="I2AuthValidarSesionTipoCI21IniciarSesionEnAuthServicioReal"/>
+  </testsuite>
+  <testsuite name="I2 — Auth: validar sesión (tipo C) / I2.2 Pagos valida la sesión con Auth → perfil del comprador" id="10694c05-b83f-4abb-b14a-55a9ae465abb" timestamp="2026-11-04T01:48:29.518Z" tests="4" failures="0" errors="0" time="0.019">
+    <testcase name="200 OK" time="0.019" classname="I2AuthValidarSesionTipoCI22PagosValidaLaSesionConAuthPerfilDelComprador"/>
+    <testcase name="trae el id_usuario y el rol que entrega Auth" time="0.019" classname="I2AuthValidarSesionTipoCI22PagosValidaLaSesionConAuthPerfilDelComprador"/>
+    <testcase name="trae nombre_completo, rut con puntos y correo" time="0.019" classname="I2AuthValidarSesionTipoCI22PagosValidaLaSesionConAuthPerfilDelComprador"/>
+    <testcase name="no se cachea (Cache-Control: no-store)" time="0.019" classname="I2AuthValidarSesionTipoCI22PagosValidaLaSesionConAuthPerfilDelComprador"/>
+  </testsuite>
+  <testsuite name="I2 — Auth: validar sesión (tipo C) / I2.3 Error: sin sesión → 401 NO_AUTENTICADO" id="693caa8c-c55b-4cd4-88e0-607d97eb68f5" timestamp="2026-11-04T01:48:29.518Z" tests="2" failures="0" errors="0" time="0.015">
+    <testcase name="401 sin sesión" time="0.015" classname="I2AuthValidarSesionTipoCI23ErrorSinSesion401NoAutenticado"/>
+    <testcase name="error NO_AUTENTICADO" time="0.015" classname="I2AuthValidarSesionTipoCI23ErrorSinSesion401NoAutenticado"/>
+  </testsuite>
+  <testsuite name="I2 — Auth: validar sesión (tipo C) / I2.4 Error: token no emitido por Auth → 401" id="98f67830-432e-478d-ab15-f5387db8961b" timestamp="2026-11-04T01:48:29.518Z" tests="2" failures="0" errors="0" time="0.016">
+    <testcase name="401 con un token falso" time="0.016" classname="I2AuthValidarSesionTipoCI24ErrorTokenNoEmitidoPorAuth401"/>
+    <testcase name="error NO_AUTENTICADO" time="0.016" classname="I2AuthValidarSesionTipoCI24ErrorTokenNoEmitidoPorAuth401"/>
+  </testsuite>
+  <testsuite name="I2 — Auth: validar sesión (tipo C) / I2.5 Error: Authorization Bearer no se acepta → 401" id="d16b27b3-5dd2-4e53-bf74-8ff644ae4e74" timestamp="2026-11-04T01:48:29.518Z" tests="1" failures="0" errors="0" time="0.015">
+    <testcase name="401 con Bearer" time="0.015" classname="I2AuthValidarSesionTipoCI25ErrorAuthorizationBearerNoSeAcepta401"/>
+  </testsuite>
+  <testsuite name="I1 — Entradas: verificar la reserva (tipo A) / I1.1 Crear una reserva en Entradas (servicio real)" id="19eb5423-eb9d-493b-8f5a-005a23deeb95" timestamp="2026-11-04T01:48:29.518Z" tests="2" failures="0" errors="0" time="0.037">
+    <testcase name="Entradas crea la reserva (2xx)" time="0.037" classname="I1EntradasVerificarLaReservaTipoAI11CrearUnaReservaEnEntradasServicioReal"/>
+    <testcase name="la reserva trae id y total" time="0.037" classname="I1EntradasVerificarLaReservaTipoAI11CrearUnaReservaEnEntradasServicioReal"/>
+  </testsuite>
+  <testsuite name="I1 — Entradas: verificar la reserva (tipo A) / I1.2 Consultar la reserva en Entradas (lo que Pagos va a verificar)" id="2ec850d7-b70d-4b23-9a57-1d354f8a6b12" timestamp="2026-11-04T01:48:29.518Z" tests="2" failures="0" errors="0" time="0.013">
+    <testcase name="Entradas responde 200" time="0.013" classname="I1EntradasVerificarLaReservaTipoAI12ConsultarLaReservaEnEntradasLoQuePagosVaAVerificar"/>
+    <testcase name="el total coincide con el de la reserva creada" time="0.013" classname="I1EntradasVerificarLaReservaTipoAI12ConsultarLaReservaEnEntradasLoQuePagosVaAVerificar"/>
+  </testsuite>
+  <testsuite name="I1 — Entradas: verificar la reserva (tipo A) / I1.3 Error: total distinto al de la reserva → 422 ORDEN_INCONSISTENTE" id="808bb205-9400-44a5-97f1-aef484f968a0" timestamp="2026-11-04T01:48:29.518Z" tests="2" failures="0" errors="0" time="0.031">
+    <testcase name="422 Unprocessable Entity" time="0.031" classname="I1EntradasVerificarLaReservaTipoAI13ErrorTotalDistintoAlDeLaReserva422OrdenInconsistente"/>
+    <testcase name="error ORDEN_INCONSISTENTE" time="0.031" classname="I1EntradasVerificarLaReservaTipoAI13ErrorTotalDistintoAlDeLaReserva422OrdenInconsistente"/>
+  </testsuite>
+  <testsuite name="I1 — Entradas: verificar la reserva (tipo A) / I1.4 Pagos crea el pago verificando la reserva en Entradas" id="ac0937e5-3376-4d7f-b29f-c436b9921b8b" timestamp="2026-11-04T01:48:29.518Z" tests="2" failures="0" errors="0" time="0.035">
+    <testcase name="201 Created" time="0.035" classname="I1EntradasVerificarLaReservaTipoAI14PagosCreaElPagoVerificandoLaReservaEnEntradas"/>
+    <testcase name="pago PENDIENTE de la reserva de Entradas" time="0.035" classname="I1EntradasVerificarLaReservaTipoAI14PagosCreaElPagoVerificandoLaReservaEnEntradas"/>
+  </testsuite>
+  <testsuite name="I1 — Entradas: verificar la reserva (tipo A) / I1.5 Consultar el pago: guarda la referencia a Entradas y el usuario de Auth" id="5a2e81c2-f08f-4bba-9f6f-4ae394319b4f" timestamp="2026-11-04T01:48:29.518Z" tests="4" failures="0" errors="0" time="0.022">
+    <testcase name="200 OK" time="0.022" classname="I1EntradasVerificarLaReservaTipoAI15ConsultarElPagoGuardaLaReferenciaAEntradasYElUsuarioDeAuth"/>
+    <testcase name="monto igual al total de la reserva" time="0.022" classname="I1EntradasVerificarLaReservaTipoAI15ConsultarElPagoGuardaLaReferenciaAEntradasYElUsuarioDeAuth"/>
+    <testcase name="referencias a Entradas y Auth" time="0.022" classname="I1EntradasVerificarLaReservaTipoAI15ConsultarElPagoGuardaLaReferenciaAEntradasYElUsuarioDeAuth"/>
+    <testcase name="estado y fecha" time="0.022" classname="I1EntradasVerificarLaReservaTipoAI15ConsultarElPagoGuardaLaReferenciaAEntradasYElUsuarioDeAuth"/>
+  </testsuite>
+  <testsuite name="I1 — Entradas: verificar la reserva (tipo A) / I1.6 Reintento idempotente: mismo pago, sin cobro doble" id="c96672a3-99b4-44c7-8312-30f1319f40a1" timestamp="2026-11-04T01:48:29.518Z" tests="2" failures="0" errors="0" time="0.019">
+    <testcase name="200 (reintento)" time="0.019" classname="I1EntradasVerificarLaReservaTipoAI16ReintentoIdempotenteMismoPagoSinCobroDoble"/>
+    <testcase name="mismo id_pago" time="0.019" classname="I1EntradasVerificarLaReservaTipoAI16ReintentoIdempotenteMismoPagoSinCobroDoble"/>
+  </testsuite>
+  <testsuite name="I1 — Entradas: verificar la reserva (tipo A) / I1.7 Error: reserva que Entradas no conoce → 422 RESERVA_NO_ENCONTRADA" id="832d9e57-be9f-4f69-9ea0-135fd6529201" timestamp="2026-11-04T01:48:29.518Z" tests="2" failures="0" errors="0" time="0.026">
+    <testcase name="422 Unprocessable Entity" time="0.026" classname="I1EntradasVerificarLaReservaTipoAI17ErrorReservaQueEntradasNoConoce422ReservaNoEncontrada"/>
+    <testcase name="error RESERVA_NO_ENCONTRADA" time="0.026" classname="I1EntradasVerificarLaReservaTipoAI17ErrorReservaQueEntradasNoConoce422ReservaNoEncontrada"/>
+  </testsuite>
+</testsuites>

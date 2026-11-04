@@ -6,7 +6,7 @@ contraparte, a través de la plataforma TicketU (API Gateway y red Docker `plata
 | Integración | Tipo (A, B o C) | Módulo contraparte | Servicio, endpoint o tópico | Contrato (ruta en el repo) | Ítem en GitHub |
 |---|---|---|---|---|---|
 | **I1** | **A.** Servicio consumido | Entradas/Inventario | `GET /api/entradas/reservas/{id_reserva}` (Pagos lo invoca al recibir `POST /api/pagos/transacciones`) | [`docs/contratos/Contrato_Pagos_Entradas_v2.5.docx`](docs/contratos/Contrato_Pagos_Entradas_v2.5.docx), operación 6 · [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) | [INT-01 (#29)](https://github.com/Modulos-Pagos/arquitectura-pagos/issues/29) |
-| **I2** | **C.** Autenticación | Auth | `GET /internal/validar-sesion` (cookie `jwt` + `x-api-key`), en cada petición protegida | [`docs/contratos/Contrato_Auth_Pagos_v1.5.docx`](docs/contratos/Contrato_Auth_Pagos_v1.5.docx) · [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) | [INT-06](https://github.com/Modulos-Pagos/arquitectura-pagos/issues?q=INT-06) |
+| **I2** | **C.** Autenticación | Auth | `GET /internal/validar-sesion` (cookie `jwt` + `x-api-key`), en cada petición protegida | [`docs/contratos/Contrato_Auth_Pagos_v1.5.docx`](docs/contratos/Contrato_Auth_Pagos_v1.5.docx) · [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) | [INT-05 (#33)](https://github.com/Modulos-Pagos/arquitectura-pagos/issues/33) |
 
 Ambas corresponden a la tabla de dependencias o a un contrato acordado:
 **I1** es la fila de Pagos *"Orden de compra: cantidad de entradas y total (Entradas)"*; **I2** es el acuerdo del contrato

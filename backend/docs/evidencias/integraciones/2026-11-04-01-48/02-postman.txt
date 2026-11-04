@@ -1,0 +1,92 @@
+Ejecución: 03-11-2026, 10:48:30 p. m. (hora de Chile)
+
+newman
+
+Pagos — Integraciones reales (Evaluación 2)
+
+□ I2 — Auth: validar sesión (tipo C)
+└ I2.1 Iniciar sesión en Auth (servicio real)
+  POST http://localhost:8080/api/auth/login [200 OK, 1.07kB, 108ms]
+  √  Auth responde 2xx al iniciar sesión
+  √  Auth entrega la cookie jwt
+
+└ I2.2 Pagos valida la sesión con Auth → perfil del comprador
+  GET http://localhost:8080/api/pagos/comprador/perfil [200 OK, 524B, 19ms]
+  √  200 OK
+  √  trae el id_usuario y el rol que entrega Auth
+  √  trae nombre_completo, rut con puntos y correo
+  √  no se cachea (Cache-Control: no-store)
+
+└ I2.3 Error: sin sesión → 401 NO_AUTENTICADO
+  GET http://localhost:8080/api/pagos/comprador/perfil [401 Unauthorized, 409B, 15ms]
+  √  401 sin sesión
+  √  error NO_AUTENTICADO
+
+└ I2.4 Error: token no emitido por Auth → 401
+  GET http://localhost:8080/api/pagos/comprador/perfil [401 Unauthorized, 409B, 16ms]
+  √  401 con un token falso
+  √  error NO_AUTENTICADO
+
+└ I2.5 Error: Authorization Bearer no se acepta → 401
+  GET http://localhost:8080/api/pagos/comprador/perfil [401 Unauthorized, 409B, 15ms]
+  √  401 con Bearer
+
+□ I1 — Entradas: verificar la reserva (tipo A)
+└ I1.1 Crear una reserva en Entradas (servicio real)
+  POST http://localhost:8080/api/entradas/reservas/hold [200 OK, 720B, 37ms]
+  √  Entradas crea la reserva (2xx)
+  √  la reserva trae id y total
+
+└ I1.2 Consultar la reserva en Entradas (lo que Pagos va a verificar)
+  GET http://localhost:8080/api/entradas/reservas/hold-a063217a [200 OK, 742B, 13ms]
+  √  Entradas responde 200
+  √  el total coincide con el de la reserva creada
+
+└ I1.3 Error: total distinto al de la reserva → 422 ORDEN_INCONSISTENTE
+  POST http://localhost:8080/api/pagos/transacciones [422 Unprocessable Entity, 498B, 31ms]
+  √  422 Unprocessable Entity
+  √  error ORDEN_INCONSISTENTE
+
+└ I1.4 Pagos crea el pago verificando la reserva en Entradas
+  POST http://localhost:8080/api/pagos/transacciones [201 Created, 677B, 35ms]
+  √  201 Created
+  √  pago PENDIENTE de la reserva de Entradas
+
+└ I1.5 Consultar el pago: guarda la referencia a Entradas y el usuario de Auth
+  GET http://localhost:8080/api/pagos/d61d56d9-8cd8-4423-affb-799ce6fe4c10 [200 OK, 818B, 22ms]
+  √  200 OK
+  √  monto igual al total de la reserva
+  √  referencias a Entradas y Auth
+  √  estado y fecha
+
+└ I1.6 Reintento idempotente: mismo pago, sin cobro doble
+  POST http://localhost:8080/api/pagos/transacciones [200 OK, 672B, 19ms]
+  √  200 (reintento)
+  √  mismo id_pago
+
+└ I1.7 Error: reserva que Entradas no conoce → 422 RESERVA_NO_ENCONTRADA
+  POST http://localhost:8080/api/pagos/transacciones [422 Unprocessable Entity, 434B, 26ms]
+  √  422 Unprocessable Entity
+  √  error RESERVA_NO_ENCONTRADA
+
+┌─────────────────────────┬───────────────────┬───────────────────┐
+│                         │          executed │            failed │
+├─────────────────────────┼───────────────────┼───────────────────┤
+│              iterations │                 1 │                 0 │
+├─────────────────────────┼───────────────────┼───────────────────┤
+│                requests │                12 │                 0 │
+├─────────────────────────┼───────────────────┼───────────────────┤
+│            test-scripts │                12 │                 0 │
+├─────────────────────────┼───────────────────┼───────────────────┤
+│      prerequest-scripts │                 1 │                 0 │
+├─────────────────────────┼───────────────────┼───────────────────┤
+│              assertions │                27 │                 0 │
+├─────────────────────────┴───────────────────┴───────────────────┤
+│ total run duration: 1340ms                                      │
+├─────────────────────────────────────────────────────────────────┤
+│ total data received: 2.88kB (approx)                            │
+├─────────────────────────────────────────────────────────────────┤
+│ average response time: 29ms [min: 13ms, max: 108ms, s.d.: 24ms] │
+└─────────────────────────────────────────────────────────────────┘
+(node:21780) [DEP0176] DeprecationWarning: fs.F_OK is deprecated, use fs.constants.F_OK instead
+(Use `node --trace-deprecation ...` to show where the warning was created)

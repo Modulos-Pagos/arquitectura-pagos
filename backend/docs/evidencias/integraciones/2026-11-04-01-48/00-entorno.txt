@@ -1,0 +1,14 @@
+Evidencia de integraciones — Pagos (TITEC 2026-2, Evaluación 2)
+Fecha: 03-11-2026, 10:48:27 p. m. (hora de Chile)
+Gateway: http://localhost:8080
+
+GET http://localhost:8080/api/pagos/health → 200
+{
+  "estado": "ok",
+  "servicio": "microservicio-pagos",
+  "base_datos": "ok",
+  "pasarela": "mock",
+  "entradas": "http",
+  "auth": "validar-sesion",
+  "broker": "rabbitmq"
+}

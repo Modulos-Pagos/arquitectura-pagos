@@ -1,0 +1,51 @@
+Consultas DESPUÉS de ejecutar las integraciones
+Fecha: 03-11-2026, 10:48:30 p. m. (hora de Chile)
+Base de datos: postgres://postgres:****@localhost:5433/pagos_db
+
+-- Cantidad de pagos por estado
+SELECT estado_pago, COUNT(*) AS cantidad FROM pagos GROUP BY estado_pago ORDER BY estado_pago;
+
+estado_pago | cantidad
+------------+---------
+ANULADO     | 6       
+PENDIENTE   | 8       
+REEMBOLSADO | 9       
+(3 filas)
+
+-- I1 + I2: pago creado para la reserva de Entradas, a nombre del usuario que validó Auth
+SELECT id_pago, id_reserva, id_usuario, id_evento, monto, moneda, estado_pago, fecha_creacion, fecha_actualizacion FROM pagos WHERE id_reserva = 'hold-a063217a';
+
+id_pago                              | id_reserva    | id_usuario                           | id_evento | monto | moneda | estado_pago | fecha_creacion           | fecha_actualizacion     
+-------------------------------------+---------------+--------------------------------------+-----------+-------+--------+-------------+--------------------------+-------------------------
+d61d56d9-8cd8-4423-affb-799ce6fe4c10 | hold-a063217a | 8638892e-5296-4a37-aa3d-65de4f6556bd | evt-77889 | 10000 | CLP    | PENDIENTE   | 2026-11-04T01:48:30.507Z | 2026-11-04T01:48:30.507Z
+(1 fila)
+
+-- I1: no se creó ningún pago con la reserva inexistente ni con el total alterado (solo existe el pago correcto)
+SELECT COUNT(*) AS pagos_de_reservas_inexistentes FROM pagos WHERE id_reserva LIKE 'res-no-existe-%';
+
+pagos_de_reservas_inexistentes
+------------------------------
+0                             
+(1 fila)
+
+-- Solo se guardan identificadores de otros módulos (columnas de la tabla pagos)
+SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'pagos' ORDER BY ordinal_position;
+
+column_name              | data_type               
+-------------------------+-------------------------
+id_pago                  | uuid                    
+id_reserva               | character varying       
+id_usuario               | character varying       
+monto                    | integer                 
+moneda                   | character               
+estado_pago              | character varying       
+motivo_rechazo           | character varying       
+stripe_session_id        | character varying       
+stripe_payment_intent_id | character varying       
+url_checkout             | text                    
+fecha_expiracion         | timestamp with time zone
+fecha_creacion           | timestamp with time zone
+fecha_actualizacion      | timestamp with time zone
+id_evento                | character varying       
+nombre_codigo            | character varying       
+(15 filas)

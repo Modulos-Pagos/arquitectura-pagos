@@ -1,0 +1,15 @@
+docker logs --since 2026-11-04T01:48:27.256Z pagos-service | grep "[integración]"
+Fecha: 03-11-2026, 10:48:31 p. m.
+
+[pagos] [integración] 2026-11-04T01:48:29.751Z Auth GET /internal/validar-sesion → 200 valido=true id_usuario=8638892e-5296-4a37-aa3d-65de4f6556bd rol=usuario (9 ms)
+[pagos] [integración] 2026-11-04T01:48:29.852Z Auth GET /internal/validar-sesion → 401 → 401 NO_AUTENTICADO (3 ms)
+[pagos] [integración] 2026-11-04T01:48:29.945Z Auth GET /internal/validar-sesion → 401 → 401 NO_AUTENTICADO (3 ms)
+[pagos] [integración] 2026-11-04T01:48:30.036Z Auth GET /internal/validar-sesion → 401 → 401 NO_AUTENTICADO (3 ms)
+[pagos] [integración] 2026-11-04T01:48:30.371Z Auth GET /internal/validar-sesion → 200 valido=true id_usuario=8638892e-5296-4a37-aa3d-65de4f6556bd rol=usuario (6 ms)
+[pagos] [integración] 2026-11-04T01:48:30.382Z Entradas GET /api/entradas/reservas/hold-a063217a → 200 (total 10000, cantidad 1) (6 ms)
+[pagos] [integración] 2026-11-04T01:48:30.496Z Auth GET /internal/validar-sesion → 200 valido=true id_usuario=8638892e-5296-4a37-aa3d-65de4f6556bd rol=usuario (6 ms)
+[pagos] [integración] 2026-11-04T01:48:30.504Z Entradas GET /api/entradas/reservas/hold-a063217a → 200 (total 10000, cantidad 1) (5 ms)
+[pagos] [integración] 2026-11-04T01:48:30.620Z Auth GET /internal/validar-sesion → 200 valido=true id_usuario=8638892e-5296-4a37-aa3d-65de4f6556bd rol=usuario (5 ms)
+[pagos] [integración] 2026-11-04T01:48:30.714Z Auth GET /internal/validar-sesion → 200 valido=true id_usuario=8638892e-5296-4a37-aa3d-65de4f6556bd rol=usuario (5 ms)
+[pagos] [integración] 2026-11-04T01:48:30.811Z Auth GET /internal/validar-sesion → 200 valido=true id_usuario=8638892e-5296-4a37-aa3d-65de4f6556bd rol=usuario (6 ms)
+[pagos] [integración] 2026-11-04T01:48:30.819Z Entradas GET /api/entradas/reservas/res-no-existe-1793756911 → 404 → 422 RESERVA_NO_ENCONTRADA (6 ms)

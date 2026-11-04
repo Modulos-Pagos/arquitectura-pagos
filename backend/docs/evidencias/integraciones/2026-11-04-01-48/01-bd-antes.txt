@@ -1,0 +1,25 @@
+Consultas ANTES de ejecutar las integraciones
+Fecha: 03-11-2026, 10:48:27 p. m. (hora de Chile)
+Base de datos: postgres://postgres:****@localhost:5433/pagos_db
+
+-- Cantidad de pagos por estado
+SELECT estado_pago, COUNT(*) AS cantidad FROM pagos GROUP BY estado_pago ORDER BY estado_pago;
+
+estado_pago | cantidad
+------------+---------
+ANULADO     | 6       
+PENDIENTE   | 7       
+REEMBOLSADO | 9       
+(3 filas)
+
+-- Últimos 5 pagos
+SELECT id_pago, id_reserva, id_usuario, id_evento, monto, estado_pago, fecha_creacion FROM pagos ORDER BY fecha_creacion DESC LIMIT 5;
+
+id_pago                              | id_reserva                 | id_usuario    | id_evento | monto | estado_pago | fecha_creacion          
+-------------------------------------+----------------------------+---------------+-----------+-------+-------------+-------------------------
+dc4bb730-857a-4e7d-b09a-bcd15fd75e28 | res-entradas-1790892334377 | usr-postman-1 | NULL      | 15000 | PENDIENTE   | 2026-10-01T22:05:34.412Z
+770061d7-6e1e-4727-9c35-0236062e7f9d | res-postman-1790892333910  | usr-postman-1 | NULL      | 15000 | REEMBOLSADO | 2026-10-01T22:05:33.945Z
+0b19b6be-c517-4f64-af5e-d423a8bf7092 | res-entradas-1790892289728 | usr-postman-1 | NULL      | 15000 | PENDIENTE   | 2026-10-01T22:04:49.761Z
+e9715ba5-d9b2-40f8-ab88-16e472f8e11a | res-postman-1790892289292  | usr-postman-1 | NULL      | 15000 | REEMBOLSADO | 2026-10-01T22:04:49.327Z
+0f122b1f-5176-4aec-941d-a9c54a1e23c3 | res-entradas-1790892199623 | usr-postman-1 | NULL      | 15000 | PENDIENTE   | 2026-10-01T22:03:19.657Z
+(5 filas)
