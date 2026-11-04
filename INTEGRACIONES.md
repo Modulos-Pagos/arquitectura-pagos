@@ -6,11 +6,11 @@ contraparte, a través de la plataforma TicketU (API Gateway y red Docker `plata
 | Integración | Tipo (A, B o C) | Módulo contraparte | Servicio, endpoint o tópico | Contrato (ruta en el repo) | Ítem en GitHub |
 |---|---|---|---|---|---|
 | **I1** | **A.** Servicio consumido | Entradas/Inventario | `GET /api/entradas/reservas/{id_reserva}` (Pagos lo invoca al recibir `POST /api/pagos/transacciones`) | [`docs/contratos/Contrato_Pagos_Entradas_v2.5.docx`](docs/contratos/Contrato_Pagos_Entradas_v2.5.docx), operación 6 · [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) | [INT-01 (#29)](https://github.com/Modulos-Pagos/arquitectura-pagos/issues/29) |
-| **I2** | **C.** Autenticación | Auth | `GET /internal/validar-sesion` (cookie `jwt` + `x-api-key`), en cada petición protegida | [`docs/contratos/Contrato_Auth_Pagos_v1.4.docx`](docs/contratos/Contrato_Auth_Pagos_v1.4.docx) · [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) | [INT-06](https://github.com/Modulos-Pagos/arquitectura-pagos/issues?q=INT-06) |
+| **I2** | **C.** Autenticación | Auth | `GET /internal/validar-sesion` (cookie `jwt` + `x-api-key`), en cada petición protegida | [`docs/contratos/Contrato_Auth_Pagos_v1.5.docx`](docs/contratos/Contrato_Auth_Pagos_v1.5.docx) · [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) | [INT-06](https://github.com/Modulos-Pagos/arquitectura-pagos/issues?q=INT-06) |
 
 Ambas corresponden a la tabla de dependencias o a un contrato acordado:
 **I1** es la fila de Pagos *"Orden de compra: cantidad de entradas y total (Entradas)"*; **I2** es el acuerdo del contrato
-Auth ↔ Pagos v1.4 (Auth entrega usuario, id y rol a los módulos).
+Auth ↔ Pagos v1.5 (Auth entrega usuario, id y rol a los módulos).
 
 Otras integraciones implementadas (no se evalúan): eventos `pago.realizado`, `pago.rechazado`, `pago.anulado` y
 `pago.reembolsado` para Entradas, y `pago.completado` para Promociones, en RabbitMQ (`ticketu.events`, tipo C;
@@ -54,7 +54,7 @@ la referencia `id_reserva` y el `id_evento` informado por Entradas.
 | Código de invocación | [`backend/src/integraciones/auth.client.ts`](backend/src/integraciones/auth.client.ts) y middleware [`backend/src/middlewares/autenticacion.ts`](backend/src/middlewares/autenticacion.ts) |
 | Configuración | `AUTH_BASE_URL` (Docker: `http://auth-service:10000`; con Auth corriendo en el mismo PC fuera de Docker, `http://host.docker.internal:10000`), `AUTH_INTERNAL_API_KEY` (la misma `INTERNAL_API_KEY` de Auth, no se sube a GitHub), `AUTH_TIMEOUT_MS` |
 | Manejo de errores de la contraparte | 401 → 401 `NO_AUTENTICADO` (el front redirige al login); 403 → 403 `SERVICIO_NO_AUTORIZADO`; 500 → 500; sin respuesta en 1000 ms, conexión rechazada u otro código → 503 `AUTH_NO_DISPONIBLE` (fail-secure: no se cobra) |
-| Contrato | Contrato Auth ↔ Pagos v1.4 y Swagger de servicios consumidos (`/internal/validar-sesion`) |
+| Contrato | Contrato Auth ↔ Pagos v1.5 y Swagger de servicios consumidos (`/internal/validar-sesion`) |
 | Datos que deja (BD) | Tabla `pagos`: `id_usuario` que entregó Auth. No se guardan nombre, RUT ni correo del comprador |
 | Interfaz | Pantalla de pago: datos del comprador desde Auth; sin sesión redirige al login de Auth con `?volver=` y regresa al pago; si Auth no responde, mensaje comprensible y no se permite pagar |
 | Pruebas | Colección `Integraciones-reales`, carpeta I2 (sesión válida, sin sesión, token no emitido por Auth, Bearer rechazado) y pruebas automáticas [`backend/tests/plataforma.test.ts`](backend/tests/plataforma.test.ts) |

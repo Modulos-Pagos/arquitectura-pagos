@@ -12,7 +12,7 @@ Equipo y responsables por rol: [`RESPONSABLES.md`](RESPONSABLES.md).
 |---|---|
 | Integraciones declaradas (I1: Entradas, tipo A · I2: Auth, tipo C) | [`INTEGRACIONES.md`](INTEGRACIONES.md) |
 | Responsables por rol (BE1, BD1, UI1, GE1, CA1) | [`RESPONSABLES.md`](RESPONSABLES.md) |
-| Contratos vigentes | [`docs/contratos/`](docs/contratos): Entradas v2.5, Auth v1.4, Promociones v1.1 |
+| Contratos vigentes | [`docs/contratos/`](docs/contratos): Entradas v2.5, Auth v1.5, Promociones v1.1 |
 | Pruebas contra los servicios reales y evidencia con fecha | [`backend/postman/Integraciones-reales.postman_collection.json`](backend/postman/Integraciones-reales.postman_collection.json), `npm run evidencia:integraciones` → [`backend/docs/evidencias/integraciones/`](backend/docs/evidencias/integraciones) |
 | Consultas SQL de la integración | [`backend/docs/evidencias/consultas-integraciones.sql`](backend/docs/evidencias/consultas-integraciones.sql) |
 | Ítems de gestión y guion de la presentación | [`docs/gestion/`](docs/gestion) |
@@ -31,7 +31,7 @@ Sigue la guía del Platform Team ([`FWizav/backendticketU`](https://github.com/F
 | Con | Qué hace Pagos | Contrato |
 |---|---|---|
 | **API Gateway** | Rutas bajo `/api/pagos/...` (el Gateway no reescribe el path); contenedor `pagos-service` en la red `plataforma-eventos-net`; en el Gateway `PAGOS_SERVICE_URL=http://pagos-service:3000` | Guía del Platform Team |
-| **Auth** | En cada petición valida la cookie `jwt` con `GET /internal/validar-sesion` (+ `x-api-key`); roles `usuario`, `organizador`, `staff`; si Auth no responde, 503 y no se cobra | [`Contrato_Auth_Pagos_v1.4.docx`](docs/contratos/Contrato_Auth_Pagos_v1.4.docx) |
+| **Auth** | En cada petición valida la cookie `jwt` con `GET /internal/validar-sesion` (+ `x-api-key`); roles `usuario`, `organizador`, `staff`; si Auth no responde, 503 y no se cobra | [`Contrato_Auth_Pagos_v1.5.docx`](docs/contratos/Contrato_Auth_Pagos_v1.5.docx) |
 | **Entradas/Inventario** | Recibe `POST /api/pagos/transacciones` con la cookie del comprador reenviada; verifica la reserva (`GET /api/entradas/reservas/{id}`, prefijo que exige el API Gateway); responde el estado y anula/reembolsa | [`Contrato_Pagos_Entradas_v2.5.docx`](docs/contratos/Contrato_Pagos_Entradas_v2.5.docx) |
 | **RabbitMQ** | Publica `pago.realizado`, `pago.rechazado`, `pago.anulado`, `pago.reembolsado` en `ticketu.events` (`ticketu-rabbitmq`, vhost `ticketu`) | Guía del Platform Team |
 | **Promociones** | Publica `pago.completado` con `id_pago`, `id_usuario`, `id_evento` y `nombre_codigo` | [`Contrato_Promociones_Pagos_v1.1.docx`](docs/contratos/Contrato_Promociones_Pagos_v1.1.docx) |

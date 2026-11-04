@@ -32,7 +32,7 @@
 | Rol | Qué mostrar | Ítem |
 |---|---|---|
 | UI/UX (Pablo) | Abrir `/pagos` sin sesión → redirige al login de Auth → vuelve solo al pago con nombre, RUT y correo de Auth. Error: con Auth detenido, mensaje "No pudimos verificar tu sesión…" y no deja pagar | UI1 a–d |
-| Back End (Cristóbal) | Contrato Auth v1.4 y Swagger (`/internal/validar-sesion`, `x-api-key`, códigos 401/403/500/503). Log `[integración] … Auth GET /internal/validar-sesion → 200 … rol=usuario` y el de error `401 → 401 NO_AUTENTICADO`. `AUTH_BASE_URL` y `AUTH_INTERNAL_API_KEY` por configuración | BE1 a–e |
+| Back End (Cristóbal) | Contrato Auth v1.5 y Swagger (`/internal/validar-sesion`, `x-api-key`, códigos 401/403/500/503). Log `[integración] … Auth GET /internal/validar-sesion → 200 … rol=usuario` y el de error `401 → 401 NO_AUTENTICADO`. `AUTH_BASE_URL` y `AUTH_INTERNAL_API_KEY` por configuración | BE1 a–e |
 | Base de Datos (Alonso) | `SELECT id_pago, id_usuario, … FROM pagos WHERE id_usuario = '<id de Auth>'`: el pago quedó con el id que entregó Auth; no hay columnas de nombre, RUT ni correo | BD1 a–d |
 | Gestión (Simón) | Issue INT-06 con criterios, contraparte (Auth), contrato v1.4, responsable, PR y estado | GE1 a–e |
 | Calidad (Ricardo) | Carpeta I2 ejecutada: sesión válida 200, sin sesión 401, token falso 401, Bearer 401; resultado con fecha | CA1 a–d |
@@ -45,6 +45,6 @@ el evento `pago.realizado` que consume Entradas (integración adicional, no eval
 ## Preguntas probables
 
 - **¿Qué pasa si Entradas o Auth se caen?** No se cobra: 503 con mensaje comprensible; timeouts de 500 ms (Entradas) y 1000 ms (Auth).
-- **¿Por qué Pagos no valida el JWT?** El contrato Auth v1.4 exige preguntarle a Auth en cada petición (revocación, rol vigente).
+- **¿Por qué Pagos no valida el JWT?** El contrato Auth v1.5 exige preguntarle a Auth en cada petición (revocación, rol vigente).
 - **¿Qué guardan de otros módulos?** Solo `id_reserva`, `id_usuario` e `id_evento` como referencias, sin FK (Database per Service).
 - **¿Cómo evitan cobrar dos veces?** `id_reserva` es único: un reintento devuelve el mismo pago (200).

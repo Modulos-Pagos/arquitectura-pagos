@@ -36,7 +36,7 @@ Como comprador con sesión iniciada en TicketU, quiero que la pantalla de pago r
 sin volver a iniciar sesión; si mi sesión no es válida, quiero que me lleve al login y luego de vuelta al pago.
 
 **Módulo contraparte:** Auth
-**Contrato:** `docs/contratos/Contrato_Auth_Pagos_v1.4.docx` · `backend/docs/openapi-servicios-consumidos.yaml`
+**Contrato:** `docs/contratos/Contrato_Auth_Pagos_v1.5.docx` · `backend/docs/openapi-servicios-consumidos.yaml`
 **Servicio consumido:** `GET /internal/validar-sesion` (header `Cookie` original + `x-api-key`)
 **Responsable:** Cristóbal Soto (back end) · Pablo Medina (front) · Alonso Venegas (BD) · Ricardo Muñoz (pruebas)
 

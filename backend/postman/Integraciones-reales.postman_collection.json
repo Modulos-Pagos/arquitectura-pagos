@@ -88,7 +88,7 @@
               }
             ],
             "url": "{{gatewayUrl}}/api/pagos/comprador/perfil",
-            "description": "**Resultado esperado:** 200. Pagos llama a `GET /internal/validar-sesion` de Auth reenviando la cookie y devuelve el perfil que entregó Auth (contrato Auth ↔ Pagos v1.4)."
+            "description": "**Resultado esperado:** 200. Pagos llama a `GET /internal/validar-sesion` de Auth reenviando la cookie y devuelve el perfil que entregó Auth (contrato Auth ↔ Pagos v1.5)."
           }
         },
         {
@@ -165,7 +165,7 @@
               }
             ],
             "url": "{{gatewayUrl}}/api/pagos/comprador/perfil",
-            "description": "**Resultado esperado:** 401. La sesión solo viaja en la cookie `jwt` (contrato v1.4, regla 2)."
+            "description": "**Resultado esperado:** 401. La sesión solo viaja en la cookie `jwt` (contrato v1.5, regla 2)."
           }
         }
       ]
