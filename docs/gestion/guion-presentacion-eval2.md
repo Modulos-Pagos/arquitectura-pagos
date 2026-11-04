@@ -22,7 +22,7 @@
 | Rol | Qué mostrar | Ítem |
 |---|---|---|
 | UI/UX (Pablo) | En el front común: elegir un evento en Entradas → "Ir a pagar" → llega a `/pagos` con la cantidad y el total de la reserva, sin copiar nada. Mostrar un error: abrir el link con otro total → "El monto no coincide con tu reserva" + "Volver a Entradas" | UI1 a–d |
-| Back End (Cristóbal) | Contrato v2.4 operación 6 y Swagger de servicios consumidos. En la terminal, la línea `[integración] … Entradas GET /api/entradas/reservas/<id> → 200 (total …, cantidad …)` y la de error (`404 → 422`). Variables `ENTRADAS_*` (sin datos fijos) | BE1 a–e |
+| Back End (Cristóbal) | Contrato v2.5 operación 6 y Swagger de servicios consumidos. En la terminal, la línea `[integración] … Entradas GET /api/entradas/reservas/<id> → 200 (total …, cantidad …)` y la de error (`404 → 422`). Variables `ENTRADAS_*` (sin datos fijos) | BE1 a–e |
 | Base de Datos (Alonso) | `SELECT … FROM pagos WHERE id_reserva = '<id>'` antes (0 filas) y después (1 fila: id_reserva, id_evento, monto = total, estado, fechas). Columnas de `pagos`: solo ids de otros módulos | BD1 a–d |
 | Gestión (Simón) | Issue INT-01 (#29): criterios de aceptación, contraparte, contrato, responsable, PR y estado | GE1 a–e |
 | Calidad (Ricardo) | Carpeta I1 de la colección `Integraciones-reales` ejecutada (éxito + total alterado 422 + reserva inexistente 422) y su resultado con fecha en `backend/docs/evidencias/integraciones/` | CA1 a–d |

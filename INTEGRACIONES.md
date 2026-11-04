@@ -5,7 +5,7 @@ contraparte, a través de la plataforma TicketU (API Gateway y red Docker `plata
 
 | Integración | Tipo (A, B o C) | Módulo contraparte | Servicio, endpoint o tópico | Contrato (ruta en el repo) | Ítem en GitHub |
 |---|---|---|---|---|---|
-| **I1** | **A.** Servicio consumido | Entradas/Inventario | `GET /api/entradas/reservas/{id_reserva}` (Pagos lo invoca al recibir `POST /api/pagos/transacciones`) | [`docs/contratos/Contrato_Pagos_Entradas_v2.4.docx`](docs/contratos/Contrato_Pagos_Entradas_v2.4.docx), operación 6 · [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) | [INT-01 (#29)](https://github.com/Modulos-Pagos/arquitectura-pagos/issues/29) |
+| **I1** | **A.** Servicio consumido | Entradas/Inventario | `GET /api/entradas/reservas/{id_reserva}` (Pagos lo invoca al recibir `POST /api/pagos/transacciones`) | [`docs/contratos/Contrato_Pagos_Entradas_v2.5.docx`](docs/contratos/Contrato_Pagos_Entradas_v2.5.docx), operación 6 · [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) | [INT-01 (#29)](https://github.com/Modulos-Pagos/arquitectura-pagos/issues/29) |
 | **I2** | **C.** Autenticación | Auth | `GET /internal/validar-sesion` (cookie `jwt` + `x-api-key`), en cada petición protegida | [`docs/contratos/Contrato_Auth_Pagos_v1.4.docx`](docs/contratos/Contrato_Auth_Pagos_v1.4.docx) · [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) | [INT-06](https://github.com/Modulos-Pagos/arquitectura-pagos/issues?q=INT-06) |
 
 Ambas corresponden a la tabla de dependencias o a un contrato acordado:
@@ -14,7 +14,7 @@ Auth ↔ Pagos v1.4 (Auth entrega usuario, id y rol a los módulos).
 
 Otras integraciones implementadas (no se evalúan): eventos `pago.realizado`, `pago.rechazado`, `pago.anulado` y
 `pago.reembolsado` para Entradas, y `pago.completado` para Promociones, en RabbitMQ (`ticketu.events`, tipo C;
-contratos [`Contrato_Pagos_Entradas_v2.4.docx`](docs/contratos/Contrato_Pagos_Entradas_v2.4.docx) operación 5 y
+contratos [`Contrato_Pagos_Entradas_v2.5.docx`](docs/contratos/Contrato_Pagos_Entradas_v2.5.docx) operación 5 y
 [`Contrato_Promociones_Pagos_v1.1.docx`](docs/contratos/Contrato_Promociones_Pagos_v1.1.docx)).
 
 ---
@@ -34,7 +34,7 @@ la referencia `id_reserva` y el `id_evento` informado por Entradas.
 | Código de invocación | [`backend/src/integraciones/entradas.client.ts`](backend/src/integraciones/entradas.client.ts) (cliente) y [`backend/src/pagos/pago.service.ts`](backend/src/pagos/pago.service.ts) (`crearTransaccion`: usa la respuesta en la lógica de negocio) |
 | Configuración (sin datos fijos en el código) | `ENTRADAS_MODO=http`, `ENTRADAS_BASE_URL`, `ENTRADAS_RUTA_RESERVA`, `ENTRADAS_TIMEOUT_MS` ([`backend/.env.example`](backend/.env.example), [`backend/docker-compose.yml`](backend/docker-compose.yml)); la cookie es la del propio comprador |
 | Manejo de errores de la contraparte | Entradas responde 404 → 422 `RESERVA_NO_ENCONTRADA`; no responde en 500 ms, 5xx o respuesta inválida → 503 `ENTRADAS_NO_DISPONIBLE`; total distinto → 422 `ORDEN_INCONSISTENTE`. En ningún caso se crea el pago |
-| Contrato | Contrato Pagos ↔ Entradas v2.4 (operaciones 2 y 6) y Swagger de servicios consumidos |
+| Contrato | Contrato Pagos ↔ Entradas v2.5 (operaciones 2 y 6) y Swagger de servicios consumidos |
 | Datos que deja (BD) | Tabla `pagos`: `id_reserva` (referencia a Entradas), `id_evento`, `monto`, `estado_pago`, `fecha_creacion` |
 | Interfaz | Front común, `/pagos` (módulo `src/modules/pagos/` de FrontendTitec): resumen con la cantidad y el total de la reserva, mensajes comprensibles si Entradas falla y botón "Ver mis entradas" de vuelta al módulo Entradas |
 | Pruebas | Colección [`backend/postman/Integraciones-reales.postman_collection.json`](backend/postman/Integraciones-reales.postman_collection.json), carpeta I1 (éxito, total alterado, reserva inexistente, reintento idempotente) y pruebas automáticas [`backend/tests/integracion-entradas.test.ts`](backend/tests/integracion-entradas.test.ts) |

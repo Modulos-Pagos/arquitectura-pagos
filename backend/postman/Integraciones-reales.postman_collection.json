@@ -257,7 +257,7 @@
               }
             ],
             "url": "{{gatewayUrl}}/api/entradas/reservas/{{idReservaI1}}",
-            "description": "**Resultado esperado:** 200 con el total y la cantidad de la reserva. Es el mismo servicio que invoca Pagos (contrato Pagos ↔ Entradas v2.4, operación 6)."
+            "description": "**Resultado esperado:** 200 con el total y la cantidad de la reserva. Es el mismo servicio que invoca Pagos (contrato Pagos ↔ Entradas v2.5, operación 6)."
           }
         },
         {
@@ -415,7 +415,7 @@
               }
             ],
             "url": "{{gatewayUrl}}/api/pagos/transacciones",
-            "description": "**Resultado esperado:** 200 con el mismo `id_pago` (contrato v2.4, sección 2.7).",
+            "description": "**Resultado esperado:** 200 con el mismo `id_pago` (contrato v2.5, sección 2.7).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"id_reserva\": \"{{idReservaI1}}\",\n  \"total\": {{totalI1}},\n  \"cantidad_entradas\": {{cantidadI1}}\n}",

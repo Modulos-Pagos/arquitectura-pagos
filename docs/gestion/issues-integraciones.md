@@ -13,7 +13,7 @@ Como comprador, cuando pulso "Ir a pagar" en Entradas quiero llegar a la pantall
 y que Pagos solo me cobre si ese total coincide con lo registrado en Entradas.
 
 **Módulo contraparte:** Entradas/Inventario (Grupo 3)
-**Contrato:** `docs/contratos/Contrato_Pagos_Entradas_v2.4.docx` (operaciones 2 y 6) · `backend/docs/openapi-servicios-consumidos.yaml`
+**Contrato:** `docs/contratos/Contrato_Pagos_Entradas_v2.5.docx` (operaciones 2 y 6) · `backend/docs/openapi-servicios-consumidos.yaml`
 **Servicio consumido:** `GET /api/entradas/reservas/{id_reserva}` (reenviando la cookie del comprador)
 **Responsable:** Cristóbal Soto (back end) · Pablo Medina (front) · Alonso Venegas (BD) · Ricardo Muñoz (pruebas)
 
