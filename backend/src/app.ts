@@ -47,6 +47,8 @@ export function crearApp(deps: Dependencias): Express {
       base_datos: baseDatos,
       pasarela: pasarela.nombre,
       entradas: entradas.modo,
+      // Cómo llega Pagos a Entradas: 'api-gateway' es lo exigido (Evaluación 3, integración tipo B).
+      entradas_via: entradas.modo === 'http' ? config.entradasVia : null,
       auth: 'validar-sesion',
       broker: eventos.modo,
     });

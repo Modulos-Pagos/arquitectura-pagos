@@ -691,6 +691,11 @@ components:
         base_datos: { type: string, enum: [ok, error] }
         pasarela: { type: string, enum: [stripe, mock] }
         entradas: { type: string, enum: [http, mock] }
+        entradas_via:
+          type: string
+          nullable: true
+          enum: [api-gateway, directo, null]
+          description: 'Cómo llega Pagos a Entradas con ENTRADAS_MODO=http. "api-gateway" = pasa por el API Gateway (lo exigido); null en modo mock.'
         auth: { type: string, enum: [validar-sesion], description: 'Pagos siempre valida la sesión con Auth (GET /internal/validar-sesion).' }
         broker: { type: string, enum: [rabbitmq, mock] }
 

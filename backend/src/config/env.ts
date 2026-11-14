@@ -19,7 +19,12 @@ export interface Config {
   frontendUrl: string;
   checkoutEmailDefecto: string;
   entradasModo: ModoEntradas;
+  /** URL del API Gateway de la plataforma (API_GATEWAY_URL). Pagos invoca a Entradas a través de él. */
+  apiGatewayUrl: string;
+  /** Base de las llamadas a Entradas: ENTRADAS_BASE_URL o, si no se define, API_GATEWAY_URL. */
   entradasBaseUrl: string;
+  /** 'api-gateway' si las llamadas a Entradas pasan por el Gateway (lo exigido); 'directo' si no. */
+  entradasVia: 'api-gateway' | 'directo';
   entradasRutaReserva: string;
   entradasTimeoutMs: number;
   corsOrigin: string;
@@ -63,6 +68,24 @@ function origenesCors(valor: string): string {
   return valor;
 }
 
+function sinBarraFinal(valor: string): string {
+  return valor.replace(/\/+$/, '');
+}
+
+/** Avisa al arrancar si una dirección de integración apunta a localhost (no sirve entre contenedores ni en workstation). */
+function avisarLocalhost(config: Config): void {
+  const direcciones: Array<[string, string]> = [
+    ['AUTH_BASE_URL', config.authBaseUrl],
+    ['API_GATEWAY_URL / ENTRADAS_BASE_URL', config.entradasModo === 'http' ? config.entradasBaseUrl : ''],
+    ['BROKER_URL', config.brokerModo === 'rabbitmq' ? config.brokerUrl : ''],
+  ];
+  for (const [nombre, valor] of direcciones) {
+    if (/\/\/(?:[^@/]*@)?(localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/i.test(valor)) {
+      console.warn(`[pagos] Aviso: ${nombre} apunta a localhost. En Docker y en workstation use el nombre del servicio en la red de la plataforma.`);
+    }
+  }
+}
+
 function entero(nombre: string, porDefecto: number): number {
   const valor = Number(texto(nombre, String(porDefecto)));
   if (!Number.isInteger(valor) || valor <= 0) {
@@ -100,19 +123,24 @@ export function cargarConfig(): Config {
     frontendUrl: texto('FRONTEND_URL', 'http://localhost:5173').replace(/\/+$/, ''),
     checkoutEmailDefecto: texto('CHECKOUT_EMAIL_DEFECTO', ''),
     entradasModo: opcion('ENTRADAS_MODO', ['mock', 'http'] as const, 'mock'),
-    entradasBaseUrl: texto('ENTRADAS_BASE_URL', 'http://localhost:3003').replace(/\/+$/, ''),
+    // Sin valores por defecto con localhost: las direcciones vienen siempre de la configuración.
+    apiGatewayUrl: sinBarraFinal(texto('API_GATEWAY_URL', '')),
+    entradasBaseUrl: sinBarraFinal(texto('ENTRADAS_BASE_URL', texto('API_GATEWAY_URL', ''))),
+    entradasVia: 'api-gateway',
     entradasRutaReserva: texto('ENTRADAS_RUTA_RESERVA', '/api/entradas/reservas/{id_reserva}'),
-    entradasTimeoutMs: entero('ENTRADAS_TIMEOUT_MS', 500),
+    // Pasa por el Gateway (un salto más): 1500 ms por defecto, configurable.
+    entradasTimeoutMs: entero('ENTRADAS_TIMEOUT_MS', 1500),
     // Orígenes del front (separados por coma). La sesión va en una cookie: se responde con el origen
     // explícito y Access-Control-Allow-Credentials: true (nunca *). "none" = sin CORS (lo resuelve el Gateway).
     corsOrigin: origenesCors(texto('CORS_ORIGIN', 'http://localhost:5173')),
     prefijoGateway: texto('PREFIJO_GATEWAY', '/api/pagos').replace(/\/+$/, ''),
     // URL INTERNA de Auth (no pasa por el Gateway): GET {AUTH_BASE_URL}/internal/validar-sesion
-    authBaseUrl: texto('AUTH_BASE_URL', 'http://localhost:3001').replace(/\/+$/, ''),
+    authBaseUrl: sinBarraFinal(texto('AUTH_BASE_URL', '')),
     authApiKey: texto('AUTH_INTERNAL_API_KEY', ''),
     authTimeoutMs: entero('AUTH_TIMEOUT_MS', 1000),
     brokerModo: opcion('BROKER_MODO', ['mock', 'rabbitmq'] as const, 'mock'),
-    brokerUrl: texto('BROKER_URL', 'amqp://ticketu:ticketu_dev@ticketu-rabbitmq:5672/ticketu'),
+    // Dirección y credenciales del broker solo por configuración (nada fijo en el código).
+    brokerUrl: texto('BROKER_URL', ''),
     // EVENT_EXCHANGE es el nombre que usa el repo del Platform Team; BROKER_EXCHANGE se mantiene por compatibilidad.
     brokerExchange: texto('BROKER_EXCHANGE', texto('EVENT_EXCHANGE', 'ticketu.events')),
     brokerTipoExchange: opcion('BROKER_TIPO_EXCHANGE', ['topic', 'direct', 'fanout'] as const, 'topic'),
@@ -122,6 +150,18 @@ export function cargarConfig(): Config {
     brokerClavePromociones: (process.env.BROKER_CLAVE_PROMOCIONES ?? 'pago.completado').trim(),
   };
 
+  config.entradasVia =
+    config.apiGatewayUrl !== '' && config.entradasBaseUrl === config.apiGatewayUrl ? 'api-gateway' : 'directo';
+
+  if (!config.authBaseUrl) {
+    throw new Error('Falta AUTH_BASE_URL: la dirección interna de Auth (GET {AUTH_BASE_URL}/internal/validar-sesion)');
+  }
+  if (config.entradasModo === 'http' && !config.entradasBaseUrl) {
+    throw new Error('ENTRADAS_MODO=http requiere API_GATEWAY_URL: Pagos consulta las reservas de Entradas a través del API Gateway');
+  }
+  if (config.brokerModo === 'rabbitmq' && !config.brokerUrl) {
+    throw new Error('BROKER_MODO=rabbitmq requiere BROKER_URL (amqp://usuario:clave@host:5672/vhost)');
+  }
   if (!config.authApiKey) {
     throw new Error('Falta AUTH_INTERNAL_API_KEY: la clave x-api-key que entrega Auth (contrato Auth ↔ Pagos v1.3)');
   }
@@ -139,5 +179,6 @@ export function cargarConfig(): Config {
       throw new Error('PASARELA=stripe requiere STRIPE_WEBHOOK_SECRET (whsec_...)');
     }
   }
+  avisarLocalhost(config);
   return config;
 }

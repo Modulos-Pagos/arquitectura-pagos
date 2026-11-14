@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Pagos — Servicios externos que INVOCA el módulo
-  version: 1.4.0
+  version: 1.5.0
   description: |
     Definición de los servicios de **otros squads** y de la **API externa** que el módulo de Pagos invoca (ítem BE2).
     El código de invocación está en:
@@ -19,8 +19,8 @@ info:
     La ruta y el formato de respuesta de Entradas deben quedar confirmados en el Swagger del equipo Entradas.
     El cliente es tolerante: acepta `total` o `monto`, y `cantidad_entradas` o `cantidad`.
 servers:
-  - url: http://entradas-service:3000
-    description: Entradas/Inventario (red Docker del curso; configurable con ENTRADAS_BASE_URL)
+  - url: http://ticketu-api-gateway:8080
+    description: API Gateway de la plataforma. Pagos llega a Entradas SOLO por aquí (ruta /api/entradas/**; configurable con API_GATEWAY_URL)
   - url: https://api.stripe.com
     description: Stripe API (modo test)
   - url: http://auth-service:10000
@@ -37,8 +37,11 @@ paths:
       description: |
         Pagos la invoca en `POST /api/v1/pagos/transacciones`, antes de crear el cobro, para verificar que
         `total`, `cantidad_entradas` e `id_evento` coinciden con lo registrado por Entradas.
-        Se reenvía el mismo header `Cookie` (`jwt=...`) recibido, para que Entradas valide la sesión con Auth. Timeout: `ENTRADAS_TIMEOUT_MS` (500 ms por defecto,
-        para respetar el SLA de 2000 ms).
+        **Pasa por el API Gateway** (`{API_GATEWAY_URL}/api/entradas/reservas/{id_reserva}`): el Gateway enruta
+        `/api/entradas/**` a Entradas sin reescribir el path. No hay llamadas directas a `entradas-service`.
+        Se reenvía el mismo header `Cookie` (`jwt=...`) recibido, para que Entradas valide la sesión con Auth, y un
+        `x-request-id` que el Gateway registra en su log (correlación de trazas). Timeout: `ENTRADAS_TIMEOUT_MS`
+        (1500 ms por defecto, dentro del SLA de 2000 ms).
 
         Lector tolerante: además de los nombres del contrato acepta los que usa el API de reservas de Entradas
         (`monto_total`, `cantidad_entrada`, `hold_id`, `estado_reserva`) y una respuesta envuelta en `data`.
@@ -47,10 +50,12 @@ paths:
         |---|---|
         | 200 y coincide | 201 (pago PENDIENTE) |
         | 200 y no coincide el total, la cantidad, el evento o el código | 422 `ORDEN_INCONSISTENTE` (no se crea el pago) |
-        | 404 | 422 `RESERVA_NO_ENCONTRADA` |
+        | 404 de Entradas | 422 `RESERVA_NO_ENCONTRADA` |
+        | 404 `ROUTE_NOT_FOUND`, 502 `BAD_GATEWAY` o 503 `SERVICE_NOT_CONFIGURED` del Gateway | 503 `ENTRADAS_NO_DISPONIBLE` |
+        | 401 o 403 (Entradas rechazó la sesión) | 503 `ENTRADAS_NO_DISPONIBLE` |
         | 5xx, sin JSON, sin `total`/`cantidad_entradas`, timeout o conexión rechazada | 503 `ENTRADAS_NO_DISPONIBLE` |
       servers:
-        - url: http://entradas-service:3000
+        - url: http://ticketu-api-gateway:8080
       security:
         - cookieAuth: []
       parameters:

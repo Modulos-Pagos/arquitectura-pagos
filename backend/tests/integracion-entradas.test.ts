@@ -153,7 +153,63 @@ describe('Invocación a Entradas/Inventario (BE2)', () => {
       process.env.LOG_INTEGRACIONES = anterior;
     }
     assert.equal(lineas.length, 1);
-    assert.match(lineas[0]!, /\[integración\] \d{4}-\d{2}-\d{2}T.* Entradas GET \/api\/entradas\/reservas\/res-404 → 404 → 422 RESERVA_NO_ENCONTRADA/);
+    assert.match(
+      lineas[0]!,
+      /\[integración\] \d{4}-\d{2}-\d{2}T.* Entradas GET \/api\/entradas\/reservas\/res-404 \(vía API Gateway, requestId=[0-9a-f-]{36}\) → 404 → 422 RESERVA_NO_ENCONTRADA/,
+    );
     assert.doesNotMatch(lineas[0]!, /token-secreto|jwt=/);
+  });
+});
+
+/** Respuestas del API Gateway del Platform Team (FWizav/backendticketU) para probar el manejo de errores (GW1 d). */
+function clienteCon(status: number, cuerpo: unknown, capturar?: (init?: RequestInit) => void): EntradasClient {
+  return new EntradasClient({
+    modo: 'http',
+    baseUrl: 'http://ticketu-api-gateway:8080',
+    timeoutMs: 300,
+    fetchImpl: (async (_url: string | URL | Request, init?: RequestInit) => {
+      capturar?.(init);
+      return new Response(JSON.stringify(cuerpo), { status, headers: { 'Content-Type': 'application/json' } });
+    }) as typeof fetch,
+  });
+}
+
+describe('Invocación a Entradas a través del API Gateway (Evaluación 3, tipo B)', () => {
+  it('envía un x-request-id para correlacionar la llamada con el log del Gateway', async () => {
+    let headers: Record<string, string> = {};
+    const cliente = clienteCon(200, { id_reserva: 'hold-1', id_evento: 'evt-1', cantidad_entradas: 1, total: 6000 }, (init) => {
+      headers = init?.headers as Record<string, string>;
+    });
+    await cliente.obtenerOrden('hold-1');
+    assert.match(headers['x-request-id'] ?? '', /^[0-9a-f-]{36}$/);
+  });
+
+  it('un 404 ROUTE_NOT_FOUND del Gateway no se confunde con una reserva inexistente: 503', async () => {
+    const cliente = clienteCon(404, { error: 'ROUTE_NOT_FOUND', message: 'Ruta no registrada en el API Gateway.' });
+    await assert.rejects(cliente.obtenerOrden('hold-1'), (e: { codigo?: string; message?: string }) =>
+      e.codigo === 'ENTRADAS_NO_DISPONIBLE' && /no está publicada en el API Gateway/.test(e.message ?? ''),
+    );
+  });
+
+  it('un 404 de Entradas (sin código del Gateway) sigue siendo RESERVA_NO_ENCONTRADA', async () => {
+    const cliente = clienteCon(404, { detail: 'Reserva no encontrada' });
+    await assert.rejects(cliente.obtenerOrden('hold-x'), (e: { codigo?: string }) => e.codigo === 'RESERVA_NO_ENCONTRADA');
+  });
+
+  it('502 BAD_GATEWAY y 503 SERVICE_NOT_CONFIGURED del Gateway → 503 ENTRADAS_NO_DISPONIBLE', async () => {
+    for (const [status, error] of [
+      [502, 'BAD_GATEWAY'],
+      [503, 'SERVICE_NOT_CONFIGURED'],
+    ] as const) {
+      await assert.rejects(clienteCon(status, { error }).obtenerOrden('hold-1'), (e: { codigo?: string }) => e.codigo === 'ENTRADAS_NO_DISPONIBLE');
+    }
+  });
+
+  it('401 o 403 de Entradas → 503 ENTRADAS_NO_DISPONIBLE con un motivo comprensible (no se cobra)', async () => {
+    for (const status of [401, 403]) {
+      await assert.rejects(clienteCon(status, { detail: 'No autenticado' }).obtenerOrden('hold-1'), (e: { codigo?: string; message?: string }) =>
+        e.codigo === 'ENTRADAS_NO_DISPONIBLE' && /rechazó la sesión/.test(e.message ?? ''),
+      );
+    }
   });
 });

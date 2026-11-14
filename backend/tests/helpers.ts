@@ -22,6 +22,8 @@ export function configPruebas(): Config {
     throw new Error('DATABASE_URL_TEST debe apuntar a una BD cuyo nombre contenga "test" (se borra en cada corrida)');
   }
   process.env.DATABASE_URL = url;
+  // Sin valores por defecto en el código: las pruebas definen las direcciones (el Auth simulado se inyecta aparte).
+  process.env.AUTH_BASE_URL ??= 'http://auth-simulado.invalid';
   process.env.AUTH_INTERNAL_API_KEY = API_KEY_PRUEBAS;
   process.env.PASARELA = 'mock';
   process.env.ENTRADAS_MODO = 'mock';

@@ -35,6 +35,7 @@ export function crearDependencias(
       baseUrl: config.entradasBaseUrl,
       timeoutMs: config.entradasTimeoutMs,
       rutaReserva: config.entradasRutaReserva,
+      via: config.entradasVia,
     });
   const auth =
     reemplazos.auth ??

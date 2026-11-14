@@ -72,6 +72,7 @@ describe('Operación', () => {
       base_datos: 'ok',
       pasarela: 'mock',
       entradas: 'mock',
+      entradas_via: null,
       auth: 'validar-sesion',
       broker: 'mock',
     });
