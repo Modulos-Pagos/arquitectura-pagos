@@ -160,7 +160,9 @@ docker compose up --build
 ```
 
 Queda en `http://localhost:3004` (directo, el 3000 del host se deja al front común) y, con el Gateway levantado,
-en `http://localhost:8080/api/pagos`. La base del contenedor se publica en el puerto `5433` del host.
+en `http://localhost:8080/api/pagos`. La base del contenedor **no** se publica en el host
+(para no chocar con las bases de otros módulos): se consulta con `docker exec -it pagos-db psql -U postgres -d pagos_db`,
+o se levanta con `-f docker-compose.yml -f docker-compose.bd-local.yml` para abrirla en `localhost:5440`.
 
 Si la base del contenedor ya existía (volumen creado con una versión anterior), aplicar los cambios del esquema sin borrar datos:
 

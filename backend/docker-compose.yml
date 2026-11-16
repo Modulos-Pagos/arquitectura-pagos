@@ -19,9 +19,10 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: pagos_db
-    ports:
-      # 5433 en el host para no chocar con otro PostgreSQL (de otro módulo o local)
-      - "${PAGOS_DB_PUERTO_HOST:-5433}:5432"
+    # Sin puerto publicado en el host: pagos-service llega a la base por la red interna (pagos-db:5432).
+    # Así no choca con las bases de otros módulos en el workstation (p. ej. Auth publica 5433).
+    # Para consultarla: docker exec -it pagos-db psql -U postgres -d pagos_db
+    # Para abrirla con un cliente o con el script de evidencia: docker-compose.bd-local.yml
     volumes:
       - pagos-db-data:/var/lib/postgresql/data
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro

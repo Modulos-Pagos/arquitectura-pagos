@@ -191,7 +191,7 @@ npm install
 $env:EVIDENCIA_AUTH_LOGIN_PATH="/api/auth/login"   # la ruta real del login de Auth
 $env:EVIDENCIA_AUTH_LOGIN_BODY='{"email":"...","password":"..."}'
 $env:EVIDENCIA_ID_EVENTO="<id de un evento pagado en Entradas>"
-$env:EVIDENCIA_DATABASE_URL="postgres://postgres:postgres@localhost:5433/pagos_db"
+$env:EVIDENCIA_DATABASE_URL="postgres://postgres:postgres@localhost:5440/pagos_db"   # Pagos levantado con docker-compose.bd-local.yml
 npm run evidencia:integraciones
 ```
 

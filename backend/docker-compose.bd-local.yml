@@ -1,0 +1,11 @@
+# Solo para desarrollo local: publica la base de Pagos en el host (por defecto 127.0.0.1:5440) para abrirla
+# con DBeaver/pgAdmin o para el script de evidencia. NO se usa en el workstation.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.bd-local.yml up -d
+#   EVIDENCIA_DATABASE_URL=postgres://postgres:postgres@localhost:5440/pagos_db
+#
+# 5440 evita los puertos de otros módulos (Auth publica su base en 5433). Se cambia con PAGOS_DB_PUERTO_HOST.
+services:
+  pagos-db:
+    ports:
+      - "127.0.0.1:${PAGOS_DB_PUERTO_HOST:-5440}:5432"

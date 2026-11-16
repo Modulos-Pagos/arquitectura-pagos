@@ -72,7 +72,8 @@ cd backend
 # Usuario de prueba de Auth y un evento pagado de Entradas (no subir credenciales a GitHub)
 export EVIDENCIA_AUTH_LOGIN_BODY='{"email":"...","password":"..."}'
 export EVIDENCIA_ID_EVENTO=<id de un evento pagado en Entradas>
-export EVIDENCIA_DATABASE_URL=postgres://postgres:postgres@localhost:5433/pagos_db
+# Levantar Pagos con: docker compose -f docker-compose.yml -f docker-compose.bd-local.yml up -d
+export EVIDENCIA_DATABASE_URL=postgres://postgres:postgres@localhost:5440/pagos_db
 npm run evidencia:integraciones
 ```
 

@@ -2,7 +2,7 @@
 -- Consultas de evidencia BD1 — Evaluación 2 (Interoperabilidad), módulo Pagos
 -- Ejecutar ANTES y DESPUÉS de cada integración y guardar la captura con fecha.
 --   Docker:  docker exec -it pagos-db psql -U postgres -d pagos_db
---   (o con cualquier cliente: postgres://postgres:postgres@localhost:5433/pagos_db)
+--   (o con un cliente, levantando con docker-compose.bd-local.yml: postgres://postgres:postgres@localhost:5440/pagos_db)
 -- Reemplazar :'id_reserva' e :'id_usuario' por los valores de la operación demostrada, o en psql:
 --   \set id_reserva 'hold-ABC123'
 --   \set id_usuario '3f1e2c1a-...'

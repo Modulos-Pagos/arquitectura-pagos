@@ -14,7 +14,7 @@
  *
  * Variables (en .env o en la terminal):
  *   EVIDENCIA_GATEWAY_URL      por defecto http://localhost:8080
- *   EVIDENCIA_DATABASE_URL     base de Pagos; con Docker: postgres://postgres:postgres@localhost:5433/pagos_db
+ *   EVIDENCIA_DATABASE_URL     base de Pagos; con Docker y docker-compose.bd-local.yml: postgres://postgres:postgres@localhost:5440/pagos_db
  *   EVIDENCIA_AUTH_LOGIN_PATH  ruta del login de Auth por el Gateway (por defecto /api/auth/login)
  *   EVIDENCIA_AUTH_LOGIN_BODY  JSON del login con un usuario de prueba de Auth (NO subirlo a GitHub)
  *   EVIDENCIA_ID_EVENTO        id de un evento pagado existente en Entradas
@@ -35,7 +35,7 @@ const carpeta = path.resolve('docs/evidencias/integraciones', sello);
 fs.mkdirSync(carpeta, { recursive: true });
 
 const gateway = (process.env.EVIDENCIA_GATEWAY_URL ?? 'http://localhost:8080').replace(/\/+$/, '');
-const urlBd = process.env.EVIDENCIA_DATABASE_URL ?? process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5433/pagos_db';
+const urlBd = process.env.EVIDENCIA_DATABASE_URL ?? process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5440/pagos_db';
 const contenedor = process.env.EVIDENCIA_CONTENEDOR ?? 'pagos-service';
 const fecha = () => new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' });
 const escribir = (archivo: string, texto: string) => fs.writeFileSync(path.join(carpeta, archivo), texto, 'utf8');
