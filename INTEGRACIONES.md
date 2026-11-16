@@ -7,7 +7,7 @@ API Gateway del workstation y `cookies.txt` es la sesión del usuario comprador 
 |---|---|---|---|---|
 | **I1. Autenticación (Auth)** | Módulo Auth: `GET /internal/validar-sesion` en cada petición a Pagos | [`docs/contratos/Contrato_Auth_Pagos_v1.5.docx`](docs/contratos/Contrato_Auth_Pagos_v1.5.docx) · [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) | Con sesión de Auth, Pagos responde el perfil y opera; sin sesión o con token alterado responde 401; el rol que entrega Auth limita qué pagos se pueden ver | Pantalla de pago del front · `curl` de la sección I1 · log de `pagos-service` (líneas `Auth GET /internal/validar-sesion`) |
 | **I2. Servicio vía API Gateway** | Módulo **Entradas**: `GET /api/entradas/reservas/{id_reserva}`, invocado por Pagos **a través del API Gateway** | Contrato de Entradas ↔ Pagos v2.5, operación 6: [`docs/contratos/Contrato_Pagos_Entradas_v2.5.docx`](docs/contratos/Contrato_Pagos_Entradas_v2.5.docx) · ruta del Gateway: `/api/entradas/reservas/{id_reserva}` (`ENTRADAS_SERVICE_URL`) | Al crear un pago, Pagos consulta la reserva por el Gateway y solo cobra si el total coincide; la misma llamada aparece en el log de Pagos y en el del Gateway con el mismo `requestId` | `/api/pagos/health` (`"entradas_via":"api-gateway"`) · log de `pagos-service` y de `ticketu-api-gateway` · tabla `pagos` |
-| **I3. Broker** | **Publica** `pago.realizado` (y `pago.rechazado`, `pago.anulado`, `pago.reembolsado`) en el exchange `ticketu.events`; lo consume **Entradas** | [`docs/contratos/Contrato_Pagos_Entradas_v2.5.docx`](docs/contratos/Contrato_Pagos_Entradas_v2.5.docx), operación 5 · esquema del mensaje en la sección I3 | Al aprobarse un pago se publica el mensaje con confirmación del broker; queda registrado con fecha y hora | Log de `pagos-service` (líneas `RabbitMQ publicar`) · consola de RabbitMQ (`http://localhost:15672`) |
+| **I3. Broker** | **Publica** `pago.realizado` (y `pago.rechazado`, `pago.anulado`, `pago.reembolsado`) en el exchange `ticketu.events`; lo consume **Entradas**. Además publica `pago.completado`, que consume **Promociones** | [`docs/contratos/Contrato_Pagos_Entradas_v2.5.docx`](docs/contratos/Contrato_Pagos_Entradas_v2.5.docx), operación 5 · [`docs/contratos/Contrato_Promociones_Pagos_v1.1.docx`](docs/contratos/Contrato_Promociones_Pagos_v1.1.docx), operación 2 · esquema del mensaje en la sección I3 | Al aprobarse un pago se publica el mensaje con confirmación del broker; queda registrado con fecha y hora | Log de `pagos-service` (líneas `RabbitMQ publicar`) · consola de RabbitMQ (`http://localhost:15672`) |
 
 Contrapartes: I2 e I3 se integran con **Entradas**. Si Entradas no está operativo en workstation, la sección
 "Si la contraparte no está disponible" indica qué queda verificable.
@@ -103,7 +103,8 @@ docker exec pagos-db psql -U postgres -d pagos_db -c \
 ## I3. Broker (RabbitMQ)
 
 Cada vez que un pago cambia de estado, Pagos **publica** un mensaje en el exchange común `ticketu.events` (tipo
-topic, durable; vhost `ticketu`). **Entradas** consume `pago.realizado` para emitir las entradas.
+topic, durable; vhost `ticketu`). **Entradas** consume `pago.realizado` para emitir las entradas. **Promociones** consume `pago.completado` (cola
+`promociones.pagos`) para descontar un uso del código de descuento; si `nombre_codigo` es `null`, lo ignora.
 
 | Elemento | Dónde |
 |---|---|
@@ -135,7 +136,8 @@ docker logs pagos-service 2>&1 | grep "RabbitMQ publicar"
 
 2. En la consola de RabbitMQ (`http://localhost:15672`, usuario `ticketu`, vhost `ticketu`): **Exchanges →
    `ticketu.events`** muestra el mensaje entrante (gráfico "Message rates") y, en **Bindings**, la cola de Entradas
-   enlazada a `pago.realizado`.
+   enlazada a `pago.realizado` y la cola `promociones.pagos` de Promociones (enlazada a `pago.completado` y
+   `pago.realizado`; en **Queues** se ve el mensaje consumido).
 3. Para ver el contenido del mensaje: en **Queues** crear una cola (por ejemplo `revision.pagos`), enlazarla en
    `ticketu.events` con routing key `pago.*`, aprobar otro pago y usar **Get messages** en esa cola. También sirve el
    consumidor de ejemplo del Platform Team: `npm run consumer -- "pago.*"` en `event-broker/`.
@@ -152,7 +154,7 @@ respondiendo.
 | Integración | Contraparte | Qué queda verificable sin ella |
 |---|---|---|
 | I2 | Entradas | La petición de Pagos **llega al API Gateway** con la ruta y el formato del contrato: `docker logs ticketu-api-gateway \| grep "module=entradas"` muestra `method=GET path=/api/entradas/reservas/{id}` con el `requestId` del log de Pagos (y `proxy_error` si Entradas no responde), y Pagos responde 503 `ENTRADAS_NO_DISPONIBLE` sin cobrar |
-| I3 | Entradas (consumidor) | El mensaje **se publica** en `ticketu.events` con el esquema acordado: log de Pagos (`→ confirmado`) y pasos 2 y 3 de la sección I3 en la consola de RabbitMQ |
+| I3 | Entradas y Promociones (consumidores) | El mensaje **se publica** en `ticketu.events` con el esquema acordado: log de Pagos (`→ confirmado`) y pasos 2 y 3 de la sección I3 en la consola de RabbitMQ |
 
 ## Pruebas automáticas
 
