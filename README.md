@@ -38,11 +38,11 @@ Sigue la guía del Platform Team ([`FWizav/backendticketU`](https://github.com/F
 |---|---|---|
 | **API Gateway** | Rutas bajo `/api/pagos/...` (el Gateway no reescribe el path); contenedor `pagos-service` en la red `plataforma-eventos-net`; en el Gateway `PAGOS_SERVICE_URL=http://pagos-service:3000` | Guía del Platform Team |
 | **Auth** | En cada petición valida la cookie `jwt` con `GET /internal/validar-sesion` (+ `x-api-key`); roles `usuario`, `organizador`, `staff`; si Auth no responde, 503 y no se cobra | [`Contrato_Auth_Pagos_v1.5.docx`](docs/contratos/Contrato_Auth_Pagos_v1.5.docx) |
-| **Entradas/Inventario** | Recibe `POST /api/pagos/transacciones` con la cookie del comprador reenviada; verifica la reserva (`GET /api/entradas/reservas/{id}`, prefijo que exige el API Gateway); responde el estado y anula/reembolsa | [`Contrato_Pagos_Entradas_v2.5.docx`](docs/contratos/Contrato_Pagos_Entradas_v2.5.docx) |
+| **Entradas/Inventario** | Recibe `POST /api/pagos/transacciones` con la cookie del comprador reenviada; verifica la reserva **a través del API Gateway** (`GET {API_GATEWAY_URL}/api/entradas/reservas/{id}`); responde el estado y anula/reembolsa | [`Contrato_Pagos_Entradas_v2.5.docx`](docs/contratos/Contrato_Pagos_Entradas_v2.5.docx) |
 | **RabbitMQ** | Publica `pago.realizado`, `pago.rechazado`, `pago.anulado`, `pago.reembolsado` en `ticketu.events` (`ticketu-rabbitmq`, vhost `ticketu`) | Guía del Platform Team |
 | **Promociones** | Publica `pago.completado` con `id_pago`, `id_usuario`, `id_evento` y `nombre_codigo` | [`Contrato_Promociones_Pagos_v1.1.docx`](docs/contratos/Contrato_Promociones_Pagos_v1.1.docx) |
 
-Detalle en [`backend/README.md`](backend/README.md) § 6. Pasos para levantar todo junto (Gateway, RabbitMQ, Auth, front común) y hacer la prueba de punta a punta: [`INTEGRACION.md`](INTEGRACION.md).
+Detalle en [`backend/README.md`](backend/README.md) § 6. Instalación y prueba de punta a punta: [`INSTALACION.md`](INSTALACION.md).
 
 ## Evidencias por ítem de la rúbrica
 
