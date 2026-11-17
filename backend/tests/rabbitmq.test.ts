@@ -77,3 +77,31 @@ describe('RabbitMQ real: Pagos publica y otro servicio consume', { skip: !URL_RA
     assert.equal(promociones.id_usuario, 'usr-rabbit');
   });
 });
+
+describe('RabbitMQ real: cola de verificación pagos.eventos (Evaluación 3, BR1)', { skip: !URL_RABBIT && 'sin RABBITMQ_URL_TEST' }, () => {
+  it('cada publicación queda en la cola durable pagos.eventos aunque no haya consumidores', async () => {
+    const COLA = 'pagos.eventos';
+    const admin = await amqp.connect(URL_RABBIT!);
+    const ch = await admin.createChannel();
+    await ch.deleteQueue(COLA).catch(() => undefined);
+    const publicador = new PublicadorRabbitMQ({
+      url: URL_RABBIT!, exchange: EXCHANGE, tipoExchange: 'topic', timeoutMs: 3000, colaVerificacion: COLA,
+    });
+    try {
+      await publicador.publicar({
+        tipo: 'pago.realizado', version: 1, id_mensaje: 'msg-verif-1', fecha_evento: new Date().toISOString(),
+        id_pago: 'pago-verif-1', id_reserva: 'hold-verif', id_usuario: 'usr-verif', id_evento: 'evt-1',
+        estado_pago: 'APROBADO', monto: 12000, moneda: 'CLP', motivo: null, nombre_codigo: null, destinatario: null,
+      } as never);
+      const msg = await ch.get(COLA, { noAck: true });
+      assert.ok(msg, 'la cola pagos.eventos tiene el mensaje');
+      assert.equal(msg.fields.routingKey, 'pago.realizado');
+      assert.equal(msg.properties.messageId, 'msg-verif-1');
+      assert.equal(JSON.parse(msg.content.toString()).id_pago, 'pago-verif-1');
+    } finally {
+      await publicador.cerrar();
+      await ch.deleteQueue(COLA).catch(() => undefined);
+      await admin.close();
+    }
+  });
+});

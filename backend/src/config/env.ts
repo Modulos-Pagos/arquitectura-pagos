@@ -38,6 +38,8 @@ export interface Config {
   brokerUrl: string;
   brokerExchange: string;
   brokerTipoExchange: string;
+  /** Cola durable propia enlazada a pago.* para ver los mensajes en la consola de RabbitMQ ('' = no se declara). */
+  brokerColaVerificacion: string;
   brokerSeparador: '_' | '.';
   /** Routing key del evento para Promociones (contrato v1.0). Vacío = no se publica. */
   brokerClavePromociones: string;
@@ -144,6 +146,7 @@ export function cargarConfig(): Config {
     // EVENT_EXCHANGE es el nombre que usa el repo del Platform Team; BROKER_EXCHANGE se mantiene por compatibilidad.
     brokerExchange: texto('BROKER_EXCHANGE', texto('EVENT_EXCHANGE', 'ticketu.events')),
     brokerTipoExchange: opcion('BROKER_TIPO_EXCHANGE', ['topic', 'direct', 'fanout'] as const, 'topic'),
+    brokerColaVerificacion: process.env.BROKER_COLA_VERIFICACION ?? 'pagos.eventos',
     brokerSeparador: opcion('BROKER_SEPARADOR', ['_', '.'] as const, '.'),
     brokerTimeoutMs: entero('BROKER_TIMEOUT_MS', 2000),
     // Definida pero vacía (BROKER_CLAVE_PROMOCIONES=) desactiva el evento.

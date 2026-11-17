@@ -138,13 +138,14 @@ docker logs pagos-service 2>&1 | grep "RabbitMQ publicar"
    `ticketu.events`** muestra el mensaje entrante (gráfico "Message rates") y, en **Bindings**, la cola de Entradas
    enlazada a `pago.realizado` y la cola `promociones.pagos` de Promociones (enlazada a `pago.completado` y
    `pago.realizado`; en **Queues** se ve el mensaje consumido).
-3. Para ver el contenido del mensaje: en **Queues** crear una cola (por ejemplo `revision.pagos`), enlazarla en
-   `ticketu.events` con routing key `pago.*`, aprobar otro pago y usar **Get messages** en esa cola. También sirve el
-   consumidor de ejemplo del Platform Team: `npm run consumer -- "pago.*"` en `event-broker/`.
+3. Para ver el contenido del mensaje: **Queues → `pagos.eventos` → Get messages**. Es una cola durable propia de
+   Pagos, enlazada a `pago.*`, que Pagos declara al conectarse; guarda cada mensaje publicado (fecha, routing key y
+   cuerpo JSON) aunque ningún consumidor esté conectado. Por consola:
+   `docker exec ticketu-rabbitmq rabbitmqctl list_queues -p ticketu name messages` muestra `pagos.eventos` con los mensajes.
 
 **Si el broker no está disponible, la aplicación no se cae**: el pago queda igualmente aprobado en la base, el error
-queda en el log (`RabbitMQ publicar pago.realizado → error: ...`) y la conexión se reintenta en la siguiente
-publicación. Se prueba deteniendo `ticketu-rabbitmq`, aprobando un pago y revisando que `/api/pagos/health` siga
+queda en el log (`RabbitMQ publicar pago.realizado → error: broker no disponible (...)`) y la conexión se reintenta
+en la siguiente publicación. Se prueba deteniendo `ticketu-rabbitmq`, aprobando un pago y revisando que `/api/pagos/health` siga
 respondiendo.
 
 ---
@@ -156,8 +157,18 @@ respondiendo.
 | I2 | Entradas | La petición de Pagos **llega al API Gateway** con la ruta y el formato del contrato: `docker logs ticketu-api-gateway \| grep "module=entradas"` muestra `method=GET path=/api/entradas/reservas/{id}` con el `requestId` del log de Pagos (y `proxy_error` si Entradas no responde), y Pagos responde 503 `ENTRADAS_NO_DISPONIBLE` sin cobrar |
 | I3 | Entradas y Promociones (consumidores) | El mensaje **se publica** en `ticketu.events` con el esquema acordado: log de Pagos (`→ confirmado`) y pasos 2 y 3 de la sección I3 en la consola de RabbitMQ |
 
+## Dónde está en el código: tiempos de espera y fallas de la contraparte
+
+| Qué | Archivo y línea |
+|---|---|
+| Timeout de Auth (1000 ms, `AUTH_TIMEOUT_MS`) | [`backend/src/config/env.ts`](backend/src/config/env.ts) línea 142 · se aplica en [`backend/src/integraciones/auth.client.ts`](backend/src/integraciones/auth.client.ts) línea 77 (`AbortSignal.timeout`) |
+| Timeout de Entradas por el Gateway (1500 ms, `ENTRADAS_TIMEOUT_MS`) | [`backend/src/config/env.ts`](backend/src/config/env.ts) línea 134 · se aplica en [`backend/src/integraciones/entradas.client.ts`](backend/src/integraciones/entradas.client.ts) línea 97 |
+| Errores del Gateway y de Entradas (404 `ROUTE_NOT_FOUND`, 502, 503, 401/403) | [`backend/src/integraciones/entradas.client.ts`](backend/src/integraciones/entradas.client.ts), bloque `if (!respuesta.ok)` |
+| Broker caído: se registra y Pagos sigue | [`backend/src/integraciones/eventos/rabbitmq.publicador.ts`](backend/src/integraciones/eventos/rabbitmq.publicador.ts) (`publicar`, bloque `try/catch` de la conexión) · [`backend/src/pagos/pago.service.ts`](backend/src/pagos/pago.service.ts) línea 413 (`.catch`: el pago no se revierte) |
+| Cola de verificación `pagos.eventos` | [`backend/src/integraciones/eventos/rabbitmq.publicador.ts`](backend/src/integraciones/eventos/rabbitmq.publicador.ts) (`assertQueue` + `bindQueue` a `pago.*`) |
+
 ## Pruebas automáticas
 
-- Pruebas del backend (104, incluyen Auth, Gateway y broker): `cd backend && npm ci && npm test` (requiere PostgreSQL; ver [`backend/README.md`](backend/README.md)).
+- Pruebas del backend (106, incluyen Auth, Gateway y broker; las de RabbitMQ real con `RABBITMQ_URL_TEST`): `cd backend && npm ci && npm test` (requiere PostgreSQL; ver [`backend/README.md`](backend/README.md)).
 - Colección contra los servicios reales: [`backend/postman/Integraciones-reales.postman_collection.json`](backend/postman/Integraciones-reales.postman_collection.json).
 - Evidencia de la Evaluación 2 (ejecución con fecha): [`backend/docs/evidencias/integraciones/`](backend/docs/evidencias/integraciones).

@@ -11,6 +11,7 @@ export function crearPublicador(config: Config): PublicadorEventos {
       exchange: config.brokerExchange,
       tipoExchange: config.brokerTipoExchange,
       timeoutMs: config.brokerTimeoutMs,
+      colaVerificacion: config.brokerColaVerificacion,
     });
   }
   return new PublicadorMock();

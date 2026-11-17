@@ -12,7 +12,16 @@ export interface OpcionesRabbitMQ {
   tipoExchange: string;
   /** Tiempo máximo para conectar y confirmar una publicación. */
   timeoutMs: number;
+  /**
+   * Cola durable propia de Pagos enlazada a `pago.*` (BROKER_COLA_VERIFICACION, por defecto `pagos.eventos`).
+   * Deja visible en la consola de RabbitMQ cada mensaje publicado aunque ningún consumidor esté conectado
+   * (en un exchange topic sin colas enlazadas el mensaje se descarta). Vacío = no se declara.
+   */
+  colaVerificacion?: string;
 }
+
+/** Máximo de mensajes que guarda la cola de verificación (los más antiguos se descartan). */
+const MAXIMO_COLA_VERIFICACION = 1000;
 
 /**
  * Publica los eventos de Pagos en el RabbitMQ compartido.
@@ -39,6 +48,11 @@ export class PublicadorRabbitMQ implements PublicadorEventos {
         this.conexion = conexion;
         const canal = await conexion.createConfirmChannel();
         await canal.assertExchange(this.opciones.exchange, this.opciones.tipoExchange, { durable: true });
+        const cola = this.opciones.colaVerificacion;
+        if (cola && this.opciones.tipoExchange === 'topic') {
+          await canal.assertQueue(cola, { durable: true, arguments: { 'x-max-length': MAXIMO_COLA_VERIFICACION } });
+          await canal.bindQueue(cola, this.opciones.exchange, 'pago.*');
+        }
         return canal;
       })().catch((error) => {
         this.canal = null;
@@ -50,7 +64,14 @@ export class PublicadorRabbitMQ implements PublicadorEventos {
 
   async publicar(evento: MensajeBroker): Promise<void> {
     const inicio = performance.now();
-    const canal = await this.obtenerCanal();
+    let canal: CanalConfirmado;
+    try {
+      canal = await this.obtenerCanal();
+    } catch (error) {
+      // Broker caído o credenciales inválidas: queda en la traza y el pago sigue su curso (no se cae Pagos).
+      registrarIntegracion('RabbitMQ', `publicar ${evento.tipo}`, `error: broker no disponible (${(error as Error).message})`, inicio);
+      throw error;
+    }
     await new Promise<void>((ok, falla) => {
       const temporizador = setTimeout(() => falla(new Error('el broker no confirmó la publicación a tiempo')), this.opciones.timeoutMs);
       canal.publish(

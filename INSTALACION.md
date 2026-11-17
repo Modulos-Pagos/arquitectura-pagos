@@ -29,19 +29,18 @@ curl http://localhost:8080/health          # API Gateway
 ```bash
 git clone https://github.com/Modulos-Pagos/arquitectura-pagos.git
 cd arquitectura-pagos/backend
-cp .env.example .env
+cp .env.workstation.example .env
 ```
 
-Editar `.env` y dejar estos valores (el resto queda como viene):
+[`backend/.env.workstation.example`](backend/.env.workstation.example) ya trae todos los valores del workstation.
+Editar `.env` y completar **solo** esta línea (no se sube a GitHub):
 
 ```env
-# La misma clave interna que usa Auth en workstation (INTERNAL_API_KEY de Auth). No se sube a GitHub.
+# La misma clave interna que usa Auth en workstation (INTERNAL_API_KEY de Auth)
 AUTH_INTERNAL_API_KEY=<INTERNAL_API_KEY de Auth en workstation>
-# Pasarela de pago: mock no necesita llaves. Para cobrar con Stripe en modo prueba, ver la sección 6.
-PASARELA=mock
-# Dirección pública del front común (a dónde vuelve el comprador después de pagar)
-FRONTEND_URL=http://localhost:3000/pagos
 ```
+
+La pasarela queda en `mock` (no necesita llaves); para cobrar con Stripe en modo prueba, ver la sección 6.
 
 Levantar:
 
@@ -67,7 +66,8 @@ cambia en `backend/.env` con la variable de la tercera columna, sin tocar el có
 | `ENTRADAS_MODO` | `http` (Pagos consulta cada reserva por el Gateway) | `ENTRADAS_MODO_DOCKER` | I2 (Gateway) |
 | `BROKER_URL` | `amqp://ticketu:ticketu_dev@ticketu-rabbitmq:5672/ticketu` | `BROKER_URL_DOCKER` | I3 (Broker) |
 | `BROKER_MODO` | `rabbitmq` | `BROKER_MODO_DOCKER` | I3 (Broker) |
-| `EVENT_EXCHANGE` | `ticketu.events` (topic, durable) | `BROKER_EXCHANGE` | I3 (Broker) |
+| `EVENT_EXCHANGE` | `ticketu.events` (topic, durable) | `EVENT_EXCHANGE` | I3 (Broker) |
+| `BROKER_COLA_VERIFICACION` | `pagos.eventos`: cola durable propia enlazada a `pago.*`, para ver cada mensaje en la consola | `BROKER_COLA_VERIFICACION` | I3 (Broker) |
 | `DATABASE_URL` | `postgres://postgres:postgres@pagos-db:5432/pagos_db` (red interna de Pagos) | — | — |
 | `PASARELA` | `mock` (o `stripe`, sección 6) | `PASARELA` | — |
 | `LOG_INTEGRACIONES` | `true` (trazas `[integración]` en el log) | `LOG_INTEGRACIONES` | I1, I2, I3 |
@@ -121,6 +121,10 @@ aprueba con el paso 4b del flujo principal. Para usar el formulario de tarjeta, 
 `PASARELA=stripe`, `STRIPE_SECRET_KEY=sk_test_...` y `STRIPE_WEBHOOK_SECRET=whsec_...` (las llaves de prueba no se
 suben a GitHub; el equipo las entrega por privado), y en el front `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...`.
 Tarjeta de prueba: `4242 4242 4242 4242`, cualquier fecha futura y cualquier CVC.
+
+El webhook de Stripe no llega al workstation (no tiene dirección pública), y no hace falta: al abrir la confirmación,
+`GET /api/pagos/{id_pago}` consulta el estado en Stripe y deja el pago en `APROBADO` si quedó cobrado
+([`backend/src/pagos/pago.service.ts`](backend/src/pagos/pago.service.ts), `sincronizarConPasarela`).
 
 ## 7. Flujo principal
 
