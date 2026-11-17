@@ -6,23 +6,29 @@ informa el estado del pago (consulta y eventos en RabbitMQ) y permite reembolsos
 
 Equipo y responsables por rol: [`RESPONSABLES.md`](RESPONSABLES.md).
 
-## Evaluación 2 — Interoperabilidad
+## Evaluación 3 — Integraciones en workstation
 
 | Qué | Dónde |
 |---|---|
-| Integraciones declaradas (I1: Entradas, tipo A · I2: Auth, tipo C) | [`INTEGRACIONES.md`](INTEGRACIONES.md) |
-| Responsables por rol (BE1, BD1, UI1, GE1, CA1) | [`RESPONSABLES.md`](RESPONSABLES.md) |
-| Contratos vigentes | [`docs/contratos/`](docs/contratos): Entradas v2.5, Auth v1.5, Promociones v1.1 |
-| Pruebas contra los servicios reales y evidencia con fecha | [`backend/postman/Integraciones-reales.postman_collection.json`](backend/postman/Integraciones-reales.postman_collection.json), `npm run evidencia:integraciones` → [`backend/docs/evidencias/integraciones/`](backend/docs/evidencias/integraciones) |
-| Consultas SQL de la integración | [`backend/docs/evidencias/consultas-integraciones.sql`](backend/docs/evidencias/consultas-integraciones.sql) |
-| Ítems de gestión y guion de la presentación | [`docs/gestion/`](docs/gestion) |
-| Levantar todo junto y probar (Docker, Gateway, RabbitMQ, Auth, Entradas, front común) | [`docs/gestion/levantar-y-probar-windows.md`](docs/gestion/levantar-y-probar-windows.md) · [`INTEGRACION.md`](INTEGRACION.md) |
+| Instalación en workstation (requisitos, comandos, variables, puertos, usuarios de prueba y flujo principal) | [`INSTALACION.md`](INSTALACION.md) |
+| Integraciones declaradas (I1: Auth, tipo A · I2: Entradas por el API Gateway, tipo B · I3: RabbitMQ, tipo C) | [`INTEGRACIONES.md`](INTEGRACIONES.md) |
+| Plan de trabajo y tareas por integrante | [`docs/gestion/plan-evaluacion-3.md`](docs/gestion/plan-evaluacion-3.md) · [milestone "Evaluación 3 - Integraciones en workstation"](https://github.com/Modulos-Pagos/arquitectura-pagos/milestone/6) |
+| Criterios de aceptación de las historias en Gherkin | [`docs/features/`](docs/features) |
+| Contratos vigentes | [`docs/contratos/`](docs/contratos): Auth v1.5, Entradas v2.5, Promociones v1.1 |
+| Swagger de Pagos (servicios que provee) y de los servicios que consume | [`backend/docs/openapi.yaml`](backend/docs/openapi.yaml) · [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) |
+| Consultas SQL para verificar cada integración | [`backend/docs/evidencias/consultas-integraciones.sql`](backend/docs/evidencias/consultas-integraciones.sql) |
+| Responsables | [`RESPONSABLES.md`](RESPONSABLES.md) |
+
+**Rama entregada:** [`main`](https://github.com/Modulos-Pagos/arquitectura-pagos/tree/main).
+
+Las evidencias de la Evaluación 2 (pruebas contra Auth y Entradas reales del 04/11) siguen en
+[`backend/docs/evidencias/integraciones/`](backend/docs/evidencias/integraciones).
 
 | Carpeta | Contenido | Puerto |
 |---|---|---|
 | [`backend/`](backend) | Microservicio (Node.js 22, TypeScript, Express, PostgreSQL/Supabase, Stripe, RabbitMQ) | 3004 (`npm run dev` y Docker) |
 | [`frontend/`](frontend) | Pantalla de pago (Next.js + Stripe Elements) | 5173 |
-| [`docs/contratos/`](docs/contratos) | Contratos de interfaz con Entradas (v2.5), Auth (v1.4) y Promociones (v1.1) | — |
+| [`docs/contratos/`](docs/contratos) | Contratos de interfaz con Entradas (v2.5), Auth (v1.5) y Promociones (v1.1) | — |
 
 ## Integración con la plataforma TicketU
 
@@ -72,7 +78,7 @@ Pagos queda en `http://localhost:8080/api/pagos/...` (por el Gateway). La sesió
 
 ### Solo nuestro módulo (desarrollo, sin el servicio de Auth)
 
-Pagos siempre valida la sesión con Auth por HTTP (contrato v1.4: no valida JWT por su cuenta). Sin el Auth real se usa el
+Pagos siempre valida la sesión con Auth por HTTP (contrato v1.5: no valida JWT por su cuenta). Sin el Auth real se usa el
 **Auth simulado** del backend, que expone el mismo `GET /internal/validar-sesion` (no es parte de Pagos; solo desarrollo).
 
 **Backend (terminal 1 y 2)**
