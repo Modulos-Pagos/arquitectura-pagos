@@ -40,7 +40,8 @@ Editar `.env` y completar **solo** esta línea (no se sube a GitHub):
 AUTH_INTERNAL_API_KEY=<INTERNAL_API_KEY de Auth en workstation>
 ```
 
-La pasarela queda en `mock` (no necesita llaves); para cobrar con Stripe en modo prueba, ver la sección 6.
+El archivo ya trae la pasarela **Stripe en modo prueba** con las llaves de prueba del equipo (sección 6): no hay que
+agregar nada más para pagar con tarjeta.
 
 Levantar:
 
@@ -69,7 +70,7 @@ cambia en `backend/.env` con la variable de la tercera columna, sin tocar el có
 | `EVENT_EXCHANGE` | `ticketu.events` (topic, durable) | `EVENT_EXCHANGE` | I3 (Broker) |
 | `BROKER_COLA_VERIFICACION` | `pagos.eventos`: cola durable propia enlazada a `pago.*`, para ver cada mensaje en la consola | `BROKER_COLA_VERIFICACION` | I3 (Broker) |
 | `DATABASE_URL` | `postgres://postgres:postgres@pagos-db:5432/pagos_db` (red interna de Pagos) | — | — |
-| `PASARELA` | `mock` (o `stripe`, sección 6) | `PASARELA` | — |
+| `PASARELA` | `stripe` en modo prueba, con `STRIPE_SECRET_KEY=sk_test_...` (o `mock`, sección 6) | `PASARELA` | — |
 | `LOG_INTEGRACIONES` | `true` (trazas `[integración]` en el log) | `LOG_INTEGRACIONES` | I1, I2, I3 |
 
 Si falta una dirección obligatoria, `pagos-service` no arranca y el log dice qué variable falta. Si alguna apunta a
@@ -92,7 +93,7 @@ curl http://localhost:8080/api/pagos/health
 Respuesta esperada (pasando por el API Gateway):
 
 ```json
-{"estado":"ok","servicio":"microservicio-pagos","base_datos":"ok","pasarela":"mock",
+{"estado":"ok","servicio":"microservicio-pagos","base_datos":"ok","pasarela":"stripe",
  "entradas":"http","entradas_via":"api-gateway","auth":"validar-sesion","broker":"rabbitmq"}
 ```
 
@@ -116,11 +117,16 @@ organizador y staff). Se inicia sesión con ellos; no hay que crear nada en Pago
 | comprador (`usuario`) / `organizador` | Pagar sus reservas y consultar, anular o reembolsar **solo sus propios** pagos |
 | `staff` | Además, consultar y reembolsar pagos de cualquier usuario y eliminar pagos |
 
-**Pago con tarjeta (opcional, Stripe en modo prueba).** Con `PASARELA=mock` no se necesita ninguna llave: el pago se
-aprueba con el paso 4b del flujo principal. Para usar el formulario de tarjeta, en `backend/.env`:
-`PASARELA=stripe`, `STRIPE_SECRET_KEY=sk_test_...` y `STRIPE_WEBHOOK_SECRET=whsec_...` (las llaves de prueba no se
-suben a GitHub; el equipo las entrega por privado), y en el front `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...`.
-Tarjeta de prueba: `4242 4242 4242 4242`, cualquier fecha futura y cualquier CVC.
+**Pago con tarjeta (Stripe en modo prueba, no mueve dinero real).** `backend/.env.workstation.example` ya trae
+`PASARELA=stripe` y la llave secreta de prueba del equipo. El **front común** necesita la llave publicable de la misma
+cuenta al construirse (build arg `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`):
+
+```
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51UAXQpJSw5u9Hxp8AHwd9H19BED1kNB8M2lt0Hb0zi9r1AY63lO89ykP86V2NUO46yTHqGgbSzJAABeZVZ9HIoWO00ecgJ1rZL
+```
+
+Tarjeta de prueba: `4242 4242 4242 4242`, cualquier fecha futura y cualquier CVC. Para no usar Stripe:
+`PASARELA=mock` en `backend/.env` y el pago se aprueba con el paso 4b del flujo por consola.
 
 El webhook de Stripe no llega al workstation (no tiene dirección pública), y no hace falta: al abrir la confirmación,
 `GET /api/pagos/{id_pago}` consulta el estado en Stripe y deja el pago en `APROBADO` si quedó cobrado
@@ -160,11 +166,15 @@ curl -s -b cookies.txt -X POST $GW/api/entradas/reservas/hold -H 'Content-Type: 
 curl -s -b cookies.txt -X POST $GW/api/pagos/transacciones -H 'Content-Type: application/json' \
   -d '{"id_reserva":"<hold_id>","total":<monto_total>,"cantidad_entradas":2}'
 
-# 4b. (solo con PASARELA=mock) Aprobar el pago: simula la confirmación de la pasarela
+# 4b. Pagar. Con PASARELA=stripe: confirmar el PaymentIntent con la tarjeta de prueba de Stripe (pm_card_visa).
+#     <pi_id> es el client_secret del paso 4 hasta "_secret_" (pi_...); <sk_test> está en backend/.env
+curl -s https://api.stripe.com/v1/payment_intents/<pi_id>/confirm -u <sk_test>: -d payment_method=pm_card_visa
+#     Con PASARELA=mock, en cambio, simular la confirmación de la pasarela:
 curl -s -X POST $GW/api/pagos/webhooks/stripe -H 'Content-Type: application/json' \
   -d '{"id":"evt_ws_1","type":"payment_intent.succeeded","data":{"object":{"id":"pi_ws_1","object":"payment_intent","metadata":{"id_pago":"<id_pago del paso 4>"}}}}'
 
-# 5. Ver el pago: estado_pago APROBADO, con el id_reserva de Entradas y el id_usuario de Auth
+# 5. Ver el pago: estado_pago APROBADO (con Stripe, esta consulta sincroniza el estado), con el id_reserva de
+#    Entradas y el id_usuario de Auth
 curl -s -b cookies.txt $GW/api/pagos/<id_pago>
 ```
 
