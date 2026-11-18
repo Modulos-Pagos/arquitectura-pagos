@@ -36,7 +36,7 @@ const TONO: Record<EstadoPago, { icono: string; badge: string }> = {
 export default function Confirmacion({ pago }: { pago: Pago }) {
   const texto =
     pago.estado_pago === 'APROBADO' && pago.destinatario
-      ? { ...TEXTOS.APROBADO, detalle: `Tu compra fue procesada. ${pago.destinatario.nombre} recibirá la entrada con código QR en ${pago.destinatario.email}.` }
+      ? { ...TEXTOS.APROBADO, detalle: `Tu compra fue procesada. La entrada con código QR queda a nombre de ${pago.destinatario.nombre}.` }
       : TEXTOS[pago.estado_pago];
   const tono = TONO[pago.estado_pago];
   const Icono = pago.estado_pago === 'APROBADO' ? CheckCircle2 : pago.estado_pago === 'PENDIENTE' ? Clock : XCircle;
@@ -49,7 +49,6 @@ export default function Confirmacion({ pago }: { pago: Pago }) {
   if (pago.motivo_rechazo) filas.push(['Motivo', pago.motivo_rechazo]);
   if (pago.destinatario) {
     filas.push(['Entrada para', pago.destinatario.nombre]);
-    filas.push(['Se enviará a', pago.destinatario.email]);
     if (pago.destinatario.rut) filas.push(['RUT', formatoRut(pago.destinatario.rut)]);
   }
 

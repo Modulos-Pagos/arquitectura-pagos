@@ -121,7 +121,7 @@ COMMENT ON COLUMN reembolsos.fecha_creacion   IS 'Fecha y hora en que se solicit
 CREATE TABLE IF NOT EXISTS destinatarios_pago (
     id_pago                  UUID          NOT NULL,
     nombre                   VARCHAR(120)  NOT NULL,
-    email                    VARCHAR(254)  NOT NULL,
+    email                    VARCHAR(254)  NULL,
     rut                      VARCHAR(12)   NULL,
     fecha_registro           TIMESTAMPTZ   NOT NULL DEFAULT now(),
     CONSTRAINT pk_destinatarios_pago PRIMARY KEY (id_pago),
@@ -131,13 +131,16 @@ CREATE TABLE IF NOT EXISTS destinatarios_pago (
     CONSTRAINT ck_destinatarios_pago_rut CHECK (rut IS NULL OR rut ~ '^[0-9]{7,8}-[0-9K]$')
 );
 
+-- Migración Evaluación 3: el correo del destinatario es opcional (el formulario ya no lo pide).
+ALTER TABLE destinatarios_pago ALTER COLUMN email DROP NOT NULL;
+
 -- Migración v2.6 (contrato Auth v1.3: Auth no expone la búsqueda de usuarios por correo).
 ALTER TABLE destinatarios_pago DROP COLUMN IF EXISTS id_usuario_destinatario;
 
 COMMENT ON TABLE  destinatarios_pago IS 'Persona a quien se le emite la entrada cuando el comprador compra para otra persona. Sin fila = la entrada es para el comprador.';
 COMMENT ON COLUMN destinatarios_pago.id_pago                 IS 'Pago al que pertenece (FK a pagos, 1 a 1). Se borra junto con el pago.';
 COMMENT ON COLUMN destinatarios_pago.nombre                  IS 'Nombre completo del destinatario (el que aparecerá en la entrada).';
-COMMENT ON COLUMN destinatarios_pago.email                   IS 'Correo del destinatario, para que Entradas/Notificaciones le envíen la entrada.';
+COMMENT ON COLUMN destinatarios_pago.email                   IS 'Correo del destinatario (opcional; el formulario de pago ya no lo pide).';
 COMMENT ON COLUMN destinatarios_pago.rut                     IS 'RUT del destinatario con dígito verificador (12345678-9), opcional.';
 COMMENT ON COLUMN destinatarios_pago.fecha_registro          IS 'Fecha y hora en que se registró o cambió el destinatario.';
 

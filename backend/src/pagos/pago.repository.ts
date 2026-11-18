@@ -62,7 +62,7 @@ function aDestinatario(f: Fila): Destinatario {
   return {
     id_pago: String(f.id_pago),
     nombre: String(f.nombre),
-    email: String(f.email),
+    email: (f.email as string | null) ?? null,
     rut: (f.rut as string | null) ?? null,
     fecha_registro: fecha(f.fecha_registro),
   };

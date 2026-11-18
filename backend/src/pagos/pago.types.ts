@@ -55,14 +55,14 @@ export interface Reembolso {
 export interface Destinatario {
   id_pago: string;
   nombre: string;
-  email: string;
+  email: string | null;
   rut: string | null;
   fecha_registro: Date;
 }
 
 export interface NuevoDestinatario {
   nombre: string;
-  email: string;
+  email: string | null;
   rut: string | null;
 }
 

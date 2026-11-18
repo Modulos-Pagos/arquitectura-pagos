@@ -81,7 +81,8 @@ export interface EventoPago extends MensajeBase {
   /** A quién se le emite la entrada cuando el comprador compra para otra persona; null = para el comprador. */
   destinatario: {
     nombre: string;
-    email: string;
+    /** null si el comprador no indicó correo (el formulario ya no lo pide). */
+    email: string | null;
     rut: string | null;
   } | null;
 }

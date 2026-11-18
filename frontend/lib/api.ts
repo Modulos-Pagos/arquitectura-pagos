@@ -85,7 +85,7 @@ export interface TransaccionCreada {
 /** Persona que recibe la entrada cuando el comprador la compra para otra persona. */
 export interface Destinatario {
   nombre: string;
-  email: string;
+  email?: string | null;
   rut: string | null;
   fecha_registro?: string;
 }
@@ -172,7 +172,7 @@ export function obtenerDatosCheckout(idPago: string): Promise<DatosCheckout> {
 
 export function definirDestinatario(
   idPago: string,
-  destinatario: { nombre: string; email: string; rut: string | null },
+  destinatario: { nombre: string; rut: string | null },
 ): Promise<{ id_pago: string; destinatario: Destinatario }> {
   return llamar('PUT', `/${encodeURIComponent(idPago)}/destinatario`, destinatario);
 }

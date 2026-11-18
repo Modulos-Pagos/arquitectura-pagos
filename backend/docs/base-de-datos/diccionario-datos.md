@@ -52,7 +52,7 @@ Persona a quien se le emite la entrada cuando el comprador compra para otra pers
 |---|---|---|---|---|---|---|
 | 1 | `id_pago` | uuid | No |  | FK, PK | Pago al que pertenece (FK a pagos, 1 a 1). Se borra junto con el pago. |
 | 2 | `nombre` | varchar(120) | No |  |  | Nombre completo del destinatario (el que aparecerá en la entrada). |
-| 3 | `email` | varchar(254) | No |  |  | Correo del destinatario, para que Entradas/Notificaciones le envíen la entrada. |
+| 3 | `email` | varchar(254) | Sí |  |  | Correo del destinatario (opcional; el formulario de pago ya no lo pide). |
 | 4 | `rut` | varchar(12) | Sí |  |  | RUT del destinatario con dígito verificador (12345678-9), opcional. |
 | 5 | `fecha_registro` | timestamptz | No | `now()` |  | Fecha y hora en que se registró o cambió el destinatario. |
 

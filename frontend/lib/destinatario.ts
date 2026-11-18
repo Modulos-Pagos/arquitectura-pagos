@@ -2,22 +2,15 @@
  * "¿Para quién es la entrada?" — estado del formulario y validaciones (las mismas reglas que el backend).
  */
 
-/** Se escriben a mano: Auth (contrato v1.3) no expone búsqueda de usuarios por correo. */
+/** Se escriben a mano: la entrada queda a nombre de esa persona (nombre y, opcional, RUT para el acceso). */
 export interface DatosDestinatario {
   nombre: string;
-  email: string;
   rut: string;
 }
 
 export type SeleccionDestinatario = { para: 'mi' } | ({ para: 'otra' } & DatosDestinatario);
 
-export const DESTINATARIO_VACIO: DatosDestinatario = { nombre: '', email: '', rut: '' };
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function emailValido(email: string): boolean {
-  return EMAIL_REGEX.test(email.trim()) && email.trim().length <= 254;
-}
+export const DESTINATARIO_VACIO: DatosDestinatario = { nombre: '', rut: '' };
 
 /** "12.345.678-5" → "12345678-5"; null si el formato o el dígito verificador no son válidos. */
 export function normalizarRut(valor: string): string | null {
@@ -46,13 +39,12 @@ export function formatoRut(rut: string | null | undefined): string {
   return `${digitos.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}-${dv}`;
 }
 
-export type CampoDestinatario = 'nombre' | 'email' | 'rut';
+export type CampoDestinatario = 'nombre' | 'rut';
 
 export function validarDestinatario(d: DatosDestinatario): Partial<Record<CampoDestinatario, string>> {
   const errores: Partial<Record<CampoDestinatario, string>> = {};
   const nombre = d.nombre.trim();
   if (nombre.length < 2 || nombre.length > 120) errores.nombre = 'Ingresa el nombre de quien recibirá la entrada.';
-  if (!emailValido(d.email)) errores.email = 'Ingresa un correo válido: ahí le llegará la entrada.';
   if (d.rut.trim() && !normalizarRut(d.rut)) errores.rut = 'RUT no válido. Usa el formato 12.345.678-5.';
   return errores;
 }
@@ -61,7 +53,6 @@ export function validarDestinatario(d: DatosDestinatario): Partial<Record<CampoD
 export function aCuerpoDestinatario(d: DatosDestinatario) {
   return {
     nombre: d.nombre.trim().replace(/\s+/g, ' '),
-    email: d.email.trim().toLowerCase(),
     rut: d.rut.trim() ? normalizarRut(d.rut) : null,
   };
 }

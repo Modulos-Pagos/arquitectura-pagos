@@ -366,6 +366,28 @@ describe('Comprar para otra persona (destinatario)', () => {
     assert.equal(eventosDe(idPago)[0].destinatario?.nombre, 'Ana Pérez');
   });
 
+  it('el correo del destinatario es opcional: sin email queda a su nombre y el evento lleva email null', async () => {
+    const idPago = await crearPago();
+    const r = await llamar(app.url, 'PUT', `${GW}/${idPago}/destinatario`, {
+      token: token(COMPRADOR),
+      body: { nombre: 'Ana Pérez', rut: '11.111.111-1' },
+    });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.destinatario.nombre, 'Ana Pérez');
+    assert.equal(r.body.destinatario.email, null);
+
+    const malo = await llamar(app.url, 'PUT', `${GW}/${idPago}/destinatario`, {
+      token: token(COMPRADOR),
+      body: { nombre: 'Ana Pérez', email: 'no-es-correo' },
+    });
+    assert.equal(malo.status, 400, 'si se envía un correo, igual se valida');
+
+    await aprobar(idPago);
+    const evento = eventosDe(idPago)[0];
+    assert.equal(evento.destinatario?.nombre, 'Ana Pérez');
+    assert.equal(evento.destinatario?.email, null);
+  });
+
   it('valida los datos (RUT con dígito verificador) y solo lo permite al dueño con el pago PENDIENTE', async () => {
     const idPago = await crearPago();
     const rutMalo = await llamar(app.url, 'PUT', `${GW}/${idPago}/destinatario`, {

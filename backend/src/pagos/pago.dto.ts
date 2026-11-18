@@ -157,7 +157,8 @@ export function validarFiltrosListado(query: unknown): FiltrosListado {
 /** Datos que ingresa el comprador (Auth v1.3 no expone búsqueda de usuarios: siempre se escriben a mano). */
 export interface DestinatarioDto {
   nombre: string;
-  email: string;
+  /** Opcional: Pagos no envía correos; la entrada queda a nombre del destinatario. */
+  email: string | null;
   rut: string | null;
 }
 
@@ -211,7 +212,11 @@ export function validarDestinatario(body: unknown): DestinatarioDto {
     nombre = body.nombre.trim().replace(/\s+/g, ' ');
   }
 
-  const email = validarEmail(body.email, problemas);
+  // El correo del destinatario es opcional (el formulario ya no lo pide): si viene, se valida.
+  let email: string | null = null;
+  if (body.email !== undefined && body.email !== null && body.email !== '') {
+    email = validarEmail(body.email, problemas) || null;
+  }
 
   let rut: string | null = null;
   if (body.rut !== undefined && body.rut !== null && body.rut !== '') {

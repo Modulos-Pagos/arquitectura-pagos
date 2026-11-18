@@ -34,8 +34,8 @@ function ErrorCampo({ id, mensaje }: { id: string; mensaje?: string }) {
 /**
  * Tarjeta "¿Para quién es la entrada?".
  *  - Para mí: la entrada queda a nombre del comprador (datos de su sesión de Auth).
- *  - Para otra persona: se escriben su correo, nombre y RUT. Auth (contrato v1.3) no expone búsqueda
- *    de usuarios, así que no se consulta si tiene cuenta: la entrada le llega a ese correo.
+ *  - Para otra persona: se escriben su nombre y, opcional, su RUT. La entrada queda a su nombre
+ *    (Pagos no envía correos; el comprador la recibe y se la entrega).
  */
 export default function ParaQuien({ valor, onChange, errores, onLimpiarError, perfil, deshabilitado = false }: ParaQuienProps) {
   const datos: DatosDestinatario = valor.para === 'otra' ? valor : DESTINATARIO_VACIO;
@@ -106,12 +106,11 @@ export default function ParaQuien({ valor, onChange, errores, onLimpiarError, pe
       <div className="p-6 flex flex-col gap-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label="¿Para quién es la entrada?">
           {opcion('mi', 'Para mí', perfil?.correo_electronico ? `La recibes en ${perfil.correo_electronico}` : 'La entrada queda a tu nombre', User)}
-          {opcion('otra', 'Para otra persona', 'Se la enviamos a su correo, a su nombre', Gift)}
+          {opcion('otra', 'Para otra persona', 'La entrada queda a su nombre', Gift)}
         </div>
 
         {valor.para === 'otra' && (
           <div className="flex flex-col gap-4">
-            {campo('email', 'Correo de quien recibe la entrada', { type: 'email', placeholder: 'nombre@correo.cl' })}
             {campo('nombre', 'Nombre completo', { type: 'text', placeholder: 'Nombre y apellido' })}
             {campo(
               'rut',

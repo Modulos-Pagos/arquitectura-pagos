@@ -136,7 +136,6 @@ export default function CheckoutForm({
       ? {
           para: 'otra',
           nombre: destinatarioInicial.nombre,
-          email: destinatarioInicial.email,
           rut: formatoRut(destinatarioInicial.rut),
         }
       : { para: 'mi' },
@@ -191,9 +190,6 @@ export default function CheckoutForm({
     nuevos.titular = titular.trim().length < 3 ? MENSAJE_VACIO.titular : undefined;
     setErrores(nuevos);
     const nuevosDestinatario = paraQuien.para === 'otra' ? validarDestinatario(paraQuien) : {};
-    if (paraQuien.para === 'otra' && datosPerfil && paraQuien.email.trim().toLowerCase() === datosPerfil.correo_electronico.toLowerCase()) {
-      nuevosDestinatario.email = 'Ese es tu propio correo: elige «Para mí».';
-    }
     setErroresDestinatario(nuevosDestinatario);
     if (Object.values(nuevos).some(Boolean) || Object.values(nuevosDestinatario).some(Boolean)) return;
 

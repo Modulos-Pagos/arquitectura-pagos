@@ -590,17 +590,17 @@ components:
 
     DestinatarioRequest:
       type: object
-      required: [nombre, email]
+      required: [nombre]
       properties:
         nombre: { type: string, minLength: 2, maxLength: 120, example: Pedro Soto Fuentes }
-        email: { type: string, format: email, maxLength: 254, example: pedro.soto@alumnos.uv.cl }
+        email: { type: string, format: email, maxLength: 254, nullable: true, description: 'Opcional (el formulario de pago ya no lo pide); si se envía, se valida', example: pedro.soto@alumnos.uv.cl }
         rut: { type: string, nullable: true, description: 'Con dígito verificador; acepta puntos', example: 12.345.678-5 }
 
     Destinatario:
       type: object
       properties:
         nombre: { type: string, example: Pedro Soto Fuentes }
-        email: { type: string, example: pedro.soto@alumnos.uv.cl }
+        email: { type: string, nullable: true, description: 'null si no se indicó correo', example: null }
         rut: { type: string, nullable: true, description: "Con puntos y guion (formato oficial de Auth)", example: 12.345.678-5 }
         fecha_registro: { type: string, format: date-time }
 
