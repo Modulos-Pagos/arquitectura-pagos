@@ -6,6 +6,106 @@ Qué revisar de cada integración: [`INTEGRACIONES.md`](INTEGRACIONES.md).
 > En los comandos, `localhost` es el propio workstation (los puertos publicados por Docker). **Entre contenedores no se
 > usa localhost**: Pagos llega a Auth, al API Gateway y a RabbitMQ por sus nombres en la red `plataforma-eventos-net`.
 
+## 0. Workstation Windows: comandos para copiar y pegar en `cmd`
+
+Todo lo necesario para instalar y revisar Pagos, en el orden en que se ejecuta. Cada bloque se copia completo y se
+pega en una ventana de **Símbolo del sistema (`cmd`)**. Las secciones 1 a 8 explican cada paso en detalle.
+
+> **Terminal de VS Code:** en Windows abre PowerShell, donde `curl` y `&&` funcionan distinto. Antes de pegar, escribir
+> `cmd` y Enter (o elegir *Command Prompt* en la flecha junto al `+` de la terminal). El `.env` también se puede editar
+> directamente en VS Code en vez de `notepad`.
+
+**0.1 Comprobar lo que Pagos necesita de la plataforma** (red, Gateway, RabbitMQ, Auth y Entradas ya instalados):
+
+```bat
+docker network inspect plataforma-eventos-net >nul && echo Red plataforma-eventos-net OK
+docker ps --format "table {{.Names}}\t{{.Status}}"
+```
+
+Deben aparecer `ticketu-api-gateway`, `ticketu-rabbitmq`, `ticketu-auth-service` (Auth) y `entradas-service`.
+
+**0.2 Descargar Pagos y crear su configuración:**
+
+```bat
+git clone https://github.com/Modulos-Pagos/arquitectura-pagos.git
+cd arquitectura-pagos\backend
+copy /Y .env.workstation.example .env
+```
+
+**0.3 Poner la clave interna de Auth** (la misma `INTERNAL_API_KEY` que usan Auth y Entradas). Esta línea la copia
+directamente desde el contenedor de Auth al `.env` de Pagos, sin mostrarla:
+
+```bat
+powershell -NoProfile -Command "$k=(docker exec ticketu-auth-service printenv INTERNAL_API_KEY).Trim(); if(-not $k){throw 'No se pudo leer INTERNAL_API_KEY de Auth'}; (Get-Content .env) | ForEach-Object { if($_ -like 'AUTH_INTERNAL_API_KEY=*'){'AUTH_INTERNAL_API_KEY=' + $k} else {$_} } | Set-Content -Encoding ascii .env"
+findstr /C:"<INTERNAL_API_KEY" .env >nul && echo FALTA LA CLAVE: revisar el paso 0.3 || echo Clave de Auth configurada
+```
+
+Si el contenedor de Auth tiene otro nombre, verlo con `docker ps` y cambiar `ticketu-auth-service` en la línea. Alternativa
+manual: `notepad .env` y reemplazar `<INTERNAL_API_KEY de Auth en workstation>` por la clave.
+
+Comprobar que Entradas usa **la misma** clave (si muestra `CAMBIAR_CLAVE_COMPARTIDA_SEGURA`, Entradas no la tiene
+configurada y rechazará las reservas):
+
+```bat
+docker exec entradas-service printenv INTERNAL_API_KEY
+```
+
+**0.4 Levantar Pagos** (la base y sus tablas se crean solas):
+
+```bat
+docker compose up -d --build
+```
+
+**0.5 Verificar la instalación** (esperar unos segundos después del paso anterior):
+
+```bat
+curl http://localhost:8080/api/pagos/health
+docker ps --filter name=pagos --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+docker exec pagos-db psql -U postgres -d pagos_db -c "\dt"
+```
+
+El health debe responder `"base_datos":"ok"`, `"pasarela":"stripe"`, `"entradas":"http"`,
+`"entradas_via":"api-gateway"`, `"auth":"validar-sesion"` y `"broker":"rabbitmq"`.
+
+**0.6 I1 Auth:** iniciar sesión con el comprador QA y comprobar perfil, rechazos y restricción por rol:
+
+```bat
+curl -s -c cookies.txt -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d "{\"email\":\"comprador1@ticketu.test\",\"password\":\"TicketuQA2026!\"}"
+curl -s -b cookies.txt http://localhost:8080/api/pagos/comprador/perfil
+curl -s -i http://localhost:8080/api/pagos/comprador/perfil
+curl -s -i http://localhost:8080/api/pagos/comprador/perfil -H "Cookie: jwt=eyJhbGciOiJIUzI1NiJ9.token.alterado"
+curl -s -b cookies.txt "http://localhost:8080/api/pagos?id_usuario=otro-usuario"
+```
+
+Esperado: perfil `200` con `id_usuario`, nombre, RUT, correo y rol · sin sesión `401` · token alterado `401` · pagos de
+otro usuario `403 NO_AUTORIZADO`.
+
+**0.7 I2 Entradas por el API Gateway:** reservar un evento pagado y crear el pago. En el primer comando reemplazar
+`<id_usuario>` por el que mostró el perfil; en el segundo, `<hold_id>` y `<monto_total>` por los que devuelve Entradas:
+
+```bat
+curl -s -b cookies.txt -X POST http://localhost:8080/api/entradas/reservas/hold -H "Content-Type: application/json" -d "{\"id_evento\":\"evt-77889\",\"id_usuario\":\"<id_usuario>\",\"cantidad\":2,\"tiempo_limite_minutos\":10}"
+curl -s -b cookies.txt -X POST http://localhost:8080/api/pagos/transacciones -H "Content-Type: application/json" -d "{\"id_reserva\":\"<hold_id>\",\"total\":<monto_total>,\"cantidad_entradas\":2}"
+docker logs pagos-service 2>&1 | findstr /C:"Entradas GET"
+docker logs ticketu-api-gateway 2>&1 | findstr /C:"module=entradas"
+```
+
+Esperado: el pago se crea (`201`, `PENDIENTE`) y la misma llamada aparece en el log de Pagos (`vía API Gateway,
+requestId=...`) y en el del Gateway con el **mismo `requestId`**.
+
+**0.8 I3 Broker:** pagar (en el front común con la tarjeta `4242 4242 4242 4242`, sección 7) y revisar la publicación:
+
+```bat
+docker logs pagos-service 2>&1 | findstr /C:"RabbitMQ publicar"
+docker exec ticketu-rabbitmq rabbitmqctl list_queues -p ticketu name messages
+docker exec pagos-db psql -U postgres -d pagos_db -c "SELECT id_reserva, id_usuario, monto, estado_pago, fecha_creacion FROM pagos ORDER BY fecha_creacion DESC LIMIT 3;"
+```
+
+Esperado: `RabbitMQ publicar pago.realizado → confirmado`, la cola `pagos.eventos` con mensajes (la de Entradas,
+`entradas.pagos`, los consume) y la fila del pago en `APROBADO`.
+
+**Si algo falla:** `docker logs pagos-service` dice qué variable falta; ver la sección 8.
+
 ## 1. Requisitos previos
 
 | Requisito | Detalle |
