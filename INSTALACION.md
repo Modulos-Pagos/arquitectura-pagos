@@ -109,13 +109,18 @@ Documentación de la API (Swagger): `http://localhost:3004/api-docs` · servicio
 
 ## 6. Usuarios de prueba
 
-Pagos **no tiene usuarios propios**: usa los usuarios de prueba que publica **Auth** en workstation (comprador,
-organizador y staff). Se inicia sesión con ellos; no hay que crear nada en Pagos.
+Pagos **no tiene usuarios propios**: usa los usuarios QA que crea **Auth** en workstation (seed de Auth,
+[`equipo-auth/arquitectura` · `INSTALACION.md` § 4](https://github.com/equipo-auth/arquitectura/blob/main/INSTALACION.md)).
+Contraseña común de las cuentas ficticias: **`TicketuQA2026!`**. No hay que crear nada en Pagos.
 
-| Rol en Auth | Qué puede hacer en Pagos |
-|---|---|
-| comprador (`usuario`) / `organizador` | Pagar sus reservas y consultar, anular o reembolsar **solo sus propios** pagos |
-| `staff` | Además, consultar y reembolsar pagos de cualquier usuario y eliminar pagos |
+| Usuario de Auth | Rol | Qué puede hacer en Pagos |
+|---|---|---|
+| `comprador1@ticketu.test` (también `comprador2`, `comprador3`) | `usuario` | Pagar sus reservas y consultar, anular o reembolsar **solo sus propios** pagos |
+| `organizador1@ticketu.test` | `organizador` | Igual que el comprador, sobre sus propios pagos |
+| `staff1@ticketu.test` (también `staff2`, `staff3`) | `staff` | Además, consultar y reembolsar pagos de cualquier usuario y eliminar pagos |
+
+Eventos pagados para reservar: los crea la semilla de Entradas al instalarse (por ejemplo `evt-77889`,
+*Concierto Sinfónico TicketU*); el hold dura el tiempo que define Entradas (15 minutos).
 
 **Pago con tarjeta (Stripe en modo prueba, no mueve dinero real).** `backend/.env.workstation.example` ya trae
 `PASARELA=stripe` y la llave secreta de prueba del equipo. El **front común** necesita la llave publicable de la misma
@@ -146,14 +151,15 @@ El webhook de Stripe no llega al workstation (no tiene dirección pública), y n
 
 ### Por consola (no depende del front ni de Stripe)
 
-`<correo>` y `<clave>` son los del usuario comprador de Auth; `<id_evento>` es un evento pagado con stock de Entradas.
+Usuario comprador de Auth: `comprador1@ticketu.test` / `TicketuQA2026!`. `<id_evento>` es un evento pagado con stock
+de Entradas (por ejemplo `evt-77889`).
 
 ```bash
 GW=http://localhost:8080
 
 # 1. Iniciar sesión en Auth (guarda la cookie de sesión jwt)
 curl -s -c cookies.txt -X POST $GW/api/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"<correo>","password":"<clave>"}'
+  -d '{"email":"comprador1@ticketu.test","password":"TicketuQA2026!"}'
 
 # 2. Pagos reconoce la sesión (I1): responde id_usuario, nombre, RUT, correo y rol
 curl -s -b cookies.txt $GW/api/pagos/comprador/perfil
