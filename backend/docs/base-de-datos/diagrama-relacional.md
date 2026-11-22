@@ -1,6 +1,6 @@
 # Diagrama relacional — Microservicio de Pagos
 
-> Generado automáticamente desde la base de datos con `npm run db:docs` (2026-10-28T22:41:51.118Z).
+> Generado automáticamente desde la base de datos con `npm run db:docs` (2026-11-22T20:32:43.261Z).
 > GitHub dibuja el diagrama a partir del bloque Mermaid. Para una imagen: DBeaver/pgAdmin > ER Diagram,
 > o en Supabase: Database > Schema Visualizer.
 
@@ -26,7 +26,7 @@ erDiagram
     destinatarios_pago {
         uuid id_pago FK,PK "NOT NULL"
         varchar_120 nombre "NOT NULL"
-        varchar_254 email "NOT NULL"
+        varchar_254 email "NULL"
         varchar_12 rut "NULL"
         timestamptz fecha_registro "NOT NULL"
     }

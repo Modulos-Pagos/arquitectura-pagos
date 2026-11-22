@@ -7,3 +7,7 @@ dist/
 *.log
 coverage/
 .DS_Store
+# Generados en el workstation (no se versionan; ver docs/calidad y docs/base-de-datos)
+postman/resultados/
+docs/base-de-datos/workstation/
+docs/base-de-datos/diagrama-relacional.html

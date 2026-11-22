@@ -2,8 +2,10 @@
  * Genera, LEYENDO LA BASE DE DATOS (catálogo de PostgreSQL), la documentación de BD:
  *   docs/base-de-datos/diagrama-relacional.md   (diagrama ER en Mermaid; GitHub lo dibuja)
  *   docs/base-de-datos/diccionario-datos.md     (tablas, columnas, tipos, nulos, llaves, descripciones)
+ *   docs/base-de-datos/diagrama-relacional.html (vista para el navegador, con las filas por tabla)
  *
- * Uso: npm run db:docs   (usa DATABASE_URL)
+ * Uso: npm run db:docs   (usa DATABASE_URL; DB_DOCS_SALIDA cambia la carpeta de salida)
+ * En el workstation, sin Node instalado: ver docs/base-de-datos/README.md
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -112,7 +114,11 @@ async function main() {
     };
 
     const generado = new Date().toISOString();
-    const salida = path.resolve(__dirname, '..', 'docs', 'base-de-datos');
+    // DB_DOCS_SALIDA permite escribir en otra carpeta (en el workstation: docs/base-de-datos/workstation,
+    // ignorada por git, para no modificar los archivos versionados de la instalación).
+    const salida = process.env.DB_DOCS_SALIDA
+      ? path.resolve(process.env.DB_DOCS_SALIDA)
+      : path.resolve(__dirname, '..', 'docs', 'base-de-datos');
     fs.mkdirSync(salida, { recursive: true });
 
     // ---------------- Diagrama relacional (Mermaid) ----------------
@@ -207,6 +213,47 @@ async function main() {
     }
     fs.writeFileSync(path.join(salida, 'diccionario-datos.md'), dic.join('\n'));
     fs.writeFileSync(path.join(salida, 'diagrama-relacional.mmd'), er.join('\n') + '\n');
+
+    // ---------------- Vista HTML (se abre con doble clic en el navegador) ----------------
+    // Muestra el diagrama dibujado y cuántas filas tiene cada tabla en ESTA base (p. ej. la del workstation).
+    const filas: { tabla: string; filas: number }[] = [];
+    for (const t of tablas) {
+      const r = await pool.query(`SELECT count(*)::int AS n FROM "${t.tabla.replace(/"/g, '""')}"`);
+      filas.push({ tabla: t.tabla, filas: r.rows[0].n as number });
+    }
+    let origen = 'base de datos';
+    try {
+      const u = new URL(url);
+      origen = `${u.hostname}:${u.port || '5432'}${u.pathname}`;
+    } catch {
+      /* URL no estándar: se deja el texto genérico */
+    }
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const html = `<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagrama relacional — Pagos</title>
+<style>
+  body{font-family:system-ui,Segoe UI,Arial,sans-serif;margin:24px;color:#1f2933;background:#fff}
+  h1{font-size:22px;margin:0 0 4px} p.meta{color:#52606d;margin:0 0 20px}
+  table{border-collapse:collapse;margin:8px 0 24px} td,th{border:1px solid #cbd2d9;padding:6px 12px;text-align:left}
+  th{background:#f5f7fa} .mermaid{background:#fff}
+</style></head><body>
+<h1>Diagrama relacional — Microservicio de Pagos</h1>
+<p class="meta">Generado leyendo el catálogo de PostgreSQL de <strong>${esc(origen)}</strong> el ${esc(generado)}.</p>
+<pre class="mermaid">
+${esc(er.join('\n'))}
+</pre>
+<h2>Filas por tabla en esta base</h2>
+<table><tr><th>Tabla</th><th>Filas</th></tr>
+${filas.map((f) => `<tr><td>${esc(f.tabla)}</td><td>${f.filas}</td></tr>`).join('\n')}
+</table>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'default' });
+</script>
+</body></html>
+`;
+    fs.writeFileSync(path.join(salida, 'diagrama-relacional.html'), html);
 
     console.log(`Documentación generada en ${path.relative(process.cwd(), salida)}/`);
     console.log(`  ${tablas.length} tablas, ${columnas.length} columnas, ${restricciones.length} restricciones`);

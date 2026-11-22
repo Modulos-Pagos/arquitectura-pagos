@@ -104,6 +104,18 @@ docker exec pagos-db psql -U postgres -d pagos_db -c "SELECT id_reserva, id_usua
 Esperado: `RabbitMQ publicar pago.realizado → confirmado`, la cola `pagos.eventos` con mensajes (la de Entradas,
 `entradas.pagos`, los consume) y la fila del pago en `APROBADO`.
 
+**0.9 Todas las pruebas de integración de una vez** (Evaluación 4): la colección `Workstation-E4` ejecuta los casos
+de éxito y error de I1, I2 e I3 contra las contrapartes reales, con Newman en Docker (no hay que instalar nada):
+
+```bat
+mkdir postman\resultados 2>nul
+for /f "tokens=1,* delims==" %A in ('findstr /B "STRIPE_SECRET_KEY=" .env') do @set STRIPE_KEY=%B
+docker run --rm --network plataforma-eventos-net -v "%cd%\postman:/etc/newman" postman/newman run Workstation-E4.postman_collection.json -e workstation.postman_environment.json --env-var stripeSecretKey=%STRIPE_KEY% --reporters cli,junit,json --reporter-junit-export resultados/workstation-e4.junit.xml --reporter-json-export resultados/workstation-e4.json --color off
+```
+
+Esperado: `assertions … failed 0`. Detalle de cada caso: [`docs/calidad/pruebas-integracion-workstation.md`](docs/calidad/pruebas-integracion-workstation.md).
+Diagrama relacional generado desde la base del workstation: [`backend/docs/base-de-datos/README.md`](backend/docs/base-de-datos/README.md).
+
 **Si algo falla:** `docker logs pagos-service` dice qué variable falta; ver la sección 8.
 
 ## 1. Requisitos previos

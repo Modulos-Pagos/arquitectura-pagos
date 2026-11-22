@@ -6,18 +6,23 @@ informa el estado del pago (consulta y eventos en RabbitMQ) y permite reembolsos
 
 Equipo y responsables por rol: [`RESPONSABLES.md`](RESPONSABLES.md).
 
-## Evaluación 3 — Integraciones en workstation
+## Evaluación 4 — Entrega integrada en workstation
 
 | Qué | Dónde |
 |---|---|
-| Instalación en workstation (requisitos, comandos, variables, puertos, usuarios de prueba y flujo principal) | [`INSTALACION.md`](INSTALACION.md) |
-| Integraciones declaradas (I1: Auth, tipo A · I2: Entradas por el API Gateway, tipo B · I3: RabbitMQ, tipo C) | [`INTEGRACIONES.md`](INTEGRACIONES.md) |
-| Plan de trabajo y tareas por integrante | [`docs/gestion/plan-evaluacion-3.md`](docs/gestion/plan-evaluacion-3.md) · [milestone "Evaluación 3 - Integraciones en workstation"](https://github.com/Modulos-Pagos/arquitectura-pagos/milestone/6) |
+| Instalación en workstation (comandos para pegar en `cmd`, variables, puertos, usuarios de prueba y flujo principal) | [`INSTALACION.md`](INSTALACION.md) |
+| Integraciones (I1: Auth · I2: Entradas por el API Gateway · I3: RabbitMQ `ticketu.events`) | [`INTEGRACIONES.md`](INTEGRACIONES.md) |
+| Pruebas de integración ejecutadas en workstation (éxito y error por integración, Newman en Docker) | [`docs/calidad/pruebas-integracion-workstation.md`](docs/calidad/pruebas-integracion-workstation.md) |
+| Diagrama relacional generado desde la base del workstation, diccionario de datos y consultas | [`backend/docs/base-de-datos/`](backend/docs/base-de-datos) |
+| Swagger de Pagos (servicios que provee) y de los servicios que consume | [`backend/docs/openapi.yaml`](backend/docs/openapi.yaml) · [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) (en ejecución: `/api-docs` y `/api-docs/consumidos`) |
+| Pruebas de funcionalidad y su evidencia | [`backend/tests/`](backend/tests) · [`backend/docs/evidencias/pruebas-funcionales.txt`](backend/docs/evidencias/pruebas-funcionales.txt) |
+| Plan, estado por ítem de la rúbrica y guion de la presentación | [`docs/gestion/plan-evaluacion-4.md`](docs/gestion/plan-evaluacion-4.md) |
 | Criterios de aceptación de las historias en Gherkin | [`docs/features/`](docs/features) |
 | Contratos vigentes | [`docs/contratos/`](docs/contratos): Auth v1.5, Entradas v2.5, Promociones v1.1 |
-| Swagger de Pagos (servicios que provee) y de los servicios que consume | [`backend/docs/openapi.yaml`](backend/docs/openapi.yaml) · [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) |
-| Consultas SQL para verificar cada integración | [`backend/docs/evidencias/consultas-integraciones.sql`](backend/docs/evidencias/consultas-integraciones.sql) |
-| Responsables | [`RESPONSABLES.md`](RESPONSABLES.md) |
+| Responsables por rol | [`RESPONSABLES.md`](RESPONSABLES.md) |
+
+Evaluación 3 (histórico): [`docs/gestion/plan-evaluacion-3.md`](docs/gestion/plan-evaluacion-3.md) ·
+[milestone 6](https://github.com/Modulos-Pagos/arquitectura-pagos/milestone/6).
 
 **Rama entregada:** [`main`](https://github.com/Modulos-Pagos/arquitectura-pagos/tree/main).
 

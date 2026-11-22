@@ -1,6 +1,29 @@
 # Responsables por rol — Equipo Pagos (TITEC 2026-2)
 
-## Evaluación 3: Integraciones en workstation (vigente)
+## Evaluación 4: Entrega integrada en workstation (vigente)
+
+Cada responsable responde por todos los ítems de su rol, verificados sobre lo instalado en workstation.
+Plan, estado por ítem y guion de la presentación: [`docs/gestion/plan-evaluacion-4.md`](docs/gestion/plan-evaluacion-4.md).
+
+| Rol | Ítems de la rúbrica | Responsable(s) |
+|---|---|---|
+| Back End | BE1, BE2, BE3 | Cristóbal Soto |
+| Base de Datos | BD1, BD2, BD3, BD4 | Alonso Venegas |
+| UI/UX (front end) | UI1, UI2, UI3 | Pablo Medina |
+| Gestión | GE1, GE2, GE3, GE4 | Simón Canales (Scrum Master) |
+| Calidad | CA1, CA2 | Ricardo Muñoz y Simón Canales |
+
+### Evidencias por rol
+
+| Rol | Dónde está |
+|---|---|
+| Back End | Swagger propio [`backend/docs/openapi.yaml`](backend/docs/openapi.yaml) (`/api-docs`) y de servicios consumidos [`backend/docs/openapi-servicios-consumidos.yaml`](backend/docs/openapi-servicios-consumidos.yaml) (`/api-docs/consumidos`); código de invocación en [`backend/src/integraciones/`](backend/src/integraciones); integraciones en [`INTEGRACIONES.md`](INTEGRACIONES.md) |
+| Base de Datos | [`backend/docs/base-de-datos/`](backend/docs/base-de-datos) (cómo generar el diagrama desde la base del workstation, diagrama, diccionario) y [`backend/db/schema.sql`](backend/db/schema.sql) |
+| UI/UX | Módulo `/pagos` del front común (FrontendTitec, `src/modules/pagos/`); estándares en [`frontend/ESTANDARES_UI.md`](frontend/ESTANDARES_UI.md) |
+| Gestión | Milestone de la Entrega 4 e issues en GitHub; plan en [`docs/gestion/plan-evaluacion-4.md`](docs/gestion/plan-evaluacion-4.md) |
+| Calidad | Pruebas automáticas ([`backend/tests/`](backend/tests), evidencia en [`backend/docs/evidencias/pruebas-funcionales.txt`](backend/docs/evidencias/pruebas-funcionales.txt)); pruebas de integración en workstation: [`docs/calidad/pruebas-integracion-workstation.md`](docs/calidad/pruebas-integracion-workstation.md) |
+
+## Evaluación 3: Integraciones en workstation (histórico)
 
 La nota es grupal (AU1, GW1 y BR1). Cada integrante tiene sus tareas en el milestone
 [Evaluación 3 - Integraciones en workstation](https://github.com/Modulos-Pagos/arquitectura-pagos/milestone/6), con criterios en Gherkin;

@@ -1,6 +1,6 @@
 # Diccionario de datos — Microservicio de Pagos
 
-> Generado automáticamente desde los comentarios (`COMMENT ON`) de la base de datos con `npm run db:docs` (2026-10-28T22:41:51.118Z).
+> Generado automáticamente desde los comentarios (`COMMENT ON`) de la base de datos con `npm run db:docs` (2026-11-22T20:32:43.261Z).
 > Fuente: [`db/schema.sql`](../../db/schema.sql).
 
 ## Convenciones de nomenclatura

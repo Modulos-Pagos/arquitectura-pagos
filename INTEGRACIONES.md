@@ -1,4 +1,4 @@
-# Integraciones del módulo Pagos (TITEC 2026-2, Evaluación 3)
+# Integraciones del módulo Pagos (TITEC 2026-2, Evaluaciones 3 y 4)
 
 Instalación y flujo principal: [`INSTALACION.md`](INSTALACION.md). En los comandos, `GW=http://localhost:8080` es el
 API Gateway del workstation y `cookies.txt` es la sesión del usuario comprador de Auth (paso 1 del flujo principal).
@@ -170,5 +170,8 @@ respondiendo.
 ## Pruebas automáticas
 
 - Pruebas del backend (106, incluyen Auth, Gateway y broker; las de RabbitMQ real con `RABBITMQ_URL_TEST`): `cd backend && npm ci && npm test` (requiere PostgreSQL; ver [`backend/README.md`](backend/README.md)).
-- Colección contra los servicios reales: [`backend/postman/Integraciones-reales.postman_collection.json`](backend/postman/Integraciones-reales.postman_collection.json).
+- **Evaluación 4 — casos de prueba ejecutados en workstation** contra Auth, Entradas (por el Gateway) y RabbitMQ reales,
+  con éxito y error por integración: [`docs/calidad/pruebas-integracion-workstation.md`](docs/calidad/pruebas-integracion-workstation.md)
+  (colección [`backend/postman/Workstation-E4.postman_collection.json`](backend/postman/Workstation-E4.postman_collection.json)).
+- Colección de la Evaluación 2 contra los servicios reales: [`backend/postman/Integraciones-reales.postman_collection.json`](backend/postman/Integraciones-reales.postman_collection.json).
 - Evidencia de la Evaluación 2 (ejecución con fecha): [`backend/docs/evidencias/integraciones/`](backend/docs/evidencias/integraciones).

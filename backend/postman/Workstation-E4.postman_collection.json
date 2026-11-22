@@ -1,0 +1,1044 @@
+{
+  "info": {
+    "_postman_id": "0fdcfe3e-3884-5473-a07f-02402dadb22b",
+    "name": "Pagos — pruebas de integración en workstation (Evaluación 4)",
+    "description": "Casos de prueba de las tres integraciones de Pagos contra las contrapartes REALES del workstation (sin mocks): I1 Auth, I2 Entradas por el API Gateway e I3 RabbitMQ (ticketu.events). Cada integración tiene casos de éxito y de error. Ejecución: ver docs/calidad/pruebas-integracion-workstation.md.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "E4-00 · Instalación",
+      "item": [
+        {
+          "id": "e86cb52d-9440-597f-b835-09bd81d09ef8",
+          "name": "E4-00 Pagos responde por el API Gateway (health)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{gatewayUrl}}/api/pagos/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK por el API Gateway', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('base de datos propia conectada', () => pm.expect(b.base_datos).to.eql('ok'));",
+                  "pm.test('I1: Pagos valida sesiones con Auth', () => pm.expect(b.auth).to.eql('validar-sesion'));",
+                  "pm.test('I2: Entradas real (http) a través del API Gateway', () => {",
+                  "  pm.expect(b.entradas).to.eql('http');",
+                  "  pm.expect(b.entradas_via).to.eql('api-gateway');",
+                  "});",
+                  "pm.test('I3: publica en RabbitMQ real (no mock)', () => pm.expect(b.broker).to.eql('rabbitmq'));",
+                  "pm.test('pasarela Stripe en modo prueba', () => pm.expect(b.pasarela).to.eql('stripe'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "I1 · Auth — validar sesión",
+      "item": [
+        {
+          "id": "b765ea4b-2d25-5266-a7bc-b245b8a030f3",
+          "name": "I1.1 Iniciar sesión en Auth (comprador QA)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{gatewayUrl}}{{authLoginPath}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"{{compradorEmail}}\", \"password\": \"{{compradorPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Auth responde 2xx al iniciar sesión', () => pm.expect(pm.response.code).to.be.within(200, 299));",
+                  "let jwt = pm.cookies.get('jwt');",
+                  "if (!jwt) {",
+                  "  const setCookie = pm.response.headers.all().filter(h => h.key.toLowerCase() === 'set-cookie').map(h => h.value).join(';');",
+                  "  const m = setCookie.match(/(?:^|[;,\\s])jwt=([^;]+)/);",
+                  "  if (m) jwt = m[1];",
+                  "}",
+                  "pm.test('Auth entrega la cookie de sesión jwt', () => pm.expect(jwt, 'cookie jwt').to.be.a('string').and.not.empty);",
+                  "if (jwt) pm.environment.set('sesionJwt', jwt);",
+                  "// La sesión se manda explícita (header Cookie) solo donde corresponde.",
+                  "pm.cookies.jar().clear(pm.request.url, () => {});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "fd58891f-610e-5b24-8044-52bcf64487bb",
+          "name": "I1.2 Pagos valida la sesión con Auth → perfil del comprador",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/comprador/perfil"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('id_usuario y rol entregados por Auth', () => {",
+                  "  pm.expect(b.id_usuario).to.be.a('string').and.not.empty;",
+                  "  pm.expect(['usuario', 'organizador', 'staff']).to.include(b.rol);",
+                  "});",
+                  "pm.test('correo del comprador QA', () => pm.expect(String(b.correo_electronico || '').toLowerCase()).to.eql(String(pm.environment.get('compradorEmail')).toLowerCase()));",
+                  "pm.environment.set('idUsuario', b.id_usuario);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "a60eadf0-d4da-57be-99a7-1e91ea66dc95",
+          "name": "I1.3 Error: sin sesión → 401 NO_AUTENTICADO",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "tema=claro"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/comprador/perfil"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sin sesión', () => pm.response.to.have.status(401));",
+                  "pm.test('error NO_AUTENTICADO', () => pm.expect(pm.response.json().error).to.eql('NO_AUTENTICADO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "d42cd632-e016-5702-894d-bd81b17c60ae",
+          "name": "I1.4 Error: token alterado (no emitido por Auth) → 401",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt=eyJhbGciOiJIUzI1NiJ9.eyJpZF91c3VhcmlvIjoiaW50cnVzbyJ9.firma-falsa"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/comprador/perfil"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 con un token alterado', () => pm.response.to.have.status(401));",
+                  "pm.test('error NO_AUTENTICADO', () => pm.expect(pm.response.json().error).to.eql('NO_AUTENTICADO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "49e8042b-6727-52bc-9bd6-4df70d12a5f6",
+          "name": "I1.5 Error: el comprador pide pagos de otro usuario → 403 NO_AUTORIZADO",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos?id_usuario=otro-usuario-{{$timestamp}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 por rol (solo staff ve pagos ajenos)', () => pm.response.to.have.status(403));",
+                  "pm.test('error NO_AUTORIZADO', () => pm.expect(pm.response.json().error).to.eql('NO_AUTORIZADO'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "I2 · Entradas por el API Gateway",
+      "item": [
+        {
+          "id": "e666550b-c412-59a5-af49-ce80a47f709b",
+          "name": "I2.1 Reservar entradas en Entradas (servicio real, por el Gateway)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}{{entradasCrearReservaPath}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{idEvento}}\",\n  \"id_usuario\": \"{{idUsuario}}\",\n  \"cantidad\": {{cantidad}},\n  \"tiempo_limite_minutos\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Entradas crea la reserva (2xx)', () => pm.expect(pm.response.code).to.be.within(200, 299));",
+                  "let b = pm.response.json();",
+                  "if (b && (b.data || b.reserva)) b = Object.assign({}, b, b.data || b.reserva);",
+                  "const id = b.id_reserva || b.hold_id || b.id;",
+                  "const total = Number(b.total ?? b.monto_total ?? b.monto);",
+                  "const cantidad = Number(b.cantidad_entradas ?? b.cantidad ?? pm.environment.get('cantidad'));",
+                  "pm.test('la reserva trae id y total', () => {",
+                  "  pm.expect(id, 'id de la reserva').to.be.ok;",
+                  "  pm.expect(total, 'total de la reserva').to.be.a('number').and.above(0);",
+                  "});",
+                  "pm.environment.set('idReserva', String(id));",
+                  "pm.environment.set('total', total);",
+                  "pm.environment.set('cantidadReserva', cantidad);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "d49c8697-1c2a-53cc-b94a-606497a1d670",
+          "name": "I2.2 Consultar la reserva en Entradas (lo que Pagos verifica)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/entradas/reservas/{{idReserva}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Entradas responde 200', () => pm.response.to.have.status(200));",
+                  "let b = pm.response.json();",
+                  "if (b && (b.data || b.reserva)) b = Object.assign({}, b, b.data || b.reserva);",
+                  "pm.test('total igual al de la reserva creada', () => pm.expect(Number(b.total ?? b.monto_total ?? b.monto)).to.eql(Number(pm.environment.get('total'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "3a31f98a-789e-5cc4-8ac1-3959d57f623c",
+          "name": "I2.3 Error: total distinto al de la reserva → 422 ORDEN_INCONSISTENTE",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/transacciones",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReserva}}\",\n  \"total\": {{totalAlterado}},\n  \"cantidad_entradas\": {{cantidadReserva}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('totalAlterado', Number(pm.environment.get('total')) + 1000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422));",
+                  "pm.test('error ORDEN_INCONSISTENTE', () => pm.expect(pm.response.json().error).to.eql('ORDEN_INCONSISTENTE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "b1db7faa-0804-5018-b37e-e6cbc7b60524",
+          "name": "I2.4 Error: reserva que Entradas no conoce → 422 RESERVA_NO_ENCONTRADA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/transacciones",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"res-no-existe-{{$timestamp}}\",\n  \"total\": 1000,\n  \"cantidad_entradas\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422));",
+                  "pm.test('error RESERVA_NO_ENCONTRADA', () => pm.expect(pm.response.json().error).to.eql('RESERVA_NO_ENCONTRADA'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "1dd79d5a-4497-557c-8819-9f84dbec53d3",
+          "name": "I2.5 Pagos crea el pago verificando la reserva en Entradas",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/transacciones",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReserva}}\",\n  \"total\": {{total}},\n  \"cantidad_entradas\": {{cantidadReserva}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const b = pm.response.json();",
+                  "pm.test('pago PENDIENTE de la reserva verificada', () => {",
+                  "  pm.expect(b.estado_pago).to.eql('PENDIENTE');",
+                  "  pm.expect(b.id_reserva).to.eql(pm.environment.get('idReserva'));",
+                  "  pm.expect(b.id_pago).to.match(/^[0-9a-f-]{36}$/);",
+                  "});",
+                  "pm.test('Stripe (modo prueba) entrega el client_secret del cobro', () => pm.expect(b.client_secret).to.be.a('string').and.include('_secret_'));",
+                  "pm.environment.set('idPago', b.id_pago);",
+                  "if (b.client_secret) pm.environment.set('paymentIntent', b.client_secret.split('_secret_')[0]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "dae00e69-a602-536d-b661-19a389b8fca6",
+          "name": "I2.6 Reintento idempotente: mismo pago, sin cobro doble",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/transacciones",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reserva\": \"{{idReserva}}\",\n  \"total\": {{total}},\n  \"cantidad_entradas\": {{cantidadReserva}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 (reintento)', () => pm.response.to.have.status(200));",
+                  "pm.test('mismo id_pago', () => pm.expect(pm.response.json().id_pago).to.eql(pm.environment.get('idPago')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "e21d2ea8-db83-5a7b-9047-4c6a53139274",
+          "name": "I2.7 Consultar el pago: referencias a Entradas y a Auth",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/{{idPago}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('monto = total de la reserva', () => pm.expect(b.monto).to.eql(Number(pm.environment.get('total'))));",
+                  "pm.test('solo guarda identificadores de Entradas y Auth', () => {",
+                  "  pm.expect(b.id_reserva).to.eql(pm.environment.get('idReserva'));",
+                  "  pm.expect(b.id_usuario).to.eql(pm.environment.get('idUsuario'));",
+                  "});",
+                  "pm.test('estado PENDIENTE', () => pm.expect(b.estado_pago).to.eql('PENDIENTE'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "I3 · Broker RabbitMQ (ticketu.events)",
+      "item": [
+        {
+          "id": "6065e7e4-dc75-53ec-a53f-aa649fce7dcc",
+          "name": "I3.0 Preparación: vaciar la cola de verificación de Pagos",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{rabbitApi}}/queues/{{rabbitVhost}}/{{colaPagos}}/contents",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{rabbitUser}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{rabbitPass}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// pagos.eventos es la cola propia de Pagos (solo para verificar). 404 = aún no existe.",
+                  "pm.test('RabbitMQ real responde (204 vaciada o 404 aún no creada)', () => pm.expect([204, 404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "d0be45d1-489a-5b25-ae04-f465862ce680",
+          "name": "I3.1 Error: tarjeta rechazada en Stripe (pm_card_chargeDeclined)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{stripeApi}}/payment_intents/{{paymentIntent}}/confirm",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "payment_method",
+                  "value": "pm_card_chargeDeclined",
+                  "type": "text"
+                }
+              ]
+            },
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{stripeSecretKey}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Simula al comprador pagando con una tarjeta rechazada (lo que haría el front). No es una integración con otro squad."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Stripe rechaza el cobro (402)', () => pm.response.to.have.status(402));",
+                  "pm.test('motivo card_declined', () => pm.expect(pm.response.json().error.code).to.eql('card_declined'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "e56203cb-d2ab-5b3e-829f-8a09166b6a39",
+          "name": "I3.2 Con el cobro rechazado, el pago sigue PENDIENTE",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/{{idPago}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('sigue PENDIENTE (el comprador puede reintentar)', () => pm.expect(pm.response.json().estado_pago).to.eql('PENDIENTE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "8ca95faa-5b65-5186-83c3-2c7443e9ce17",
+          "name": "I3.3 Error: con el cobro rechazado NO se publica pago.realizado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{rabbitApi}}/queues/{{rabbitVhost}}/{{colaPagos}}/get",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"count\": 200, \"ackmode\": \"ack_requeue_true\", \"encoding\": \"auto\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{rabbitUser}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{rabbitPass}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Lee los mensajes de la cola de verificación SIN consumirlos (ackmode ack_requeue_true).",
+                  "// 404 = la cola aún no existe (Pagos todavía no publicó nada desde que arrancó): se trata como vacía.",
+                  "const lista = pm.response.code === 404 ? [] : pm.response.json();",
+                  "const mensajes = (Array.isArray(lista) ? lista : []).map(m => {",
+                  "  let cuerpo = {};",
+                  "  try { cuerpo = JSON.parse(m.payload); } catch (e) {}",
+                  "  return { clave: m.routing_key, cuerpo };",
+                  "});",
+                  "const idPago = pm.environment.get('idPago');",
+                  "const delPago = mensajes.filter(m => m.cuerpo.id_pago === idPago || (m.cuerpo.data && m.cuerpo.data.id_pago === idPago));",
+                  "console.log('Mensajes en ' + pm.environment.get('colaPagos') + ': ' + mensajes.length + ' (del pago ' + idPago + ': ' + delPago.map(m => m.clave).join(', ') + ')');",
+                  "",
+                  "pm.test('RabbitMQ responde', () => pm.expect([200, 404]).to.include(pm.response.code));",
+                  "pm.test('ningún pago.realizado de este pago', () => pm.expect(delPago.filter(m => m.clave === 'pago.realizado')).to.have.lengthOf(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "113b8598-834d-5391-af28-9751c1aa7a42",
+          "name": "I3.4 Cobro aprobado en Stripe (pm_card_visa)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{stripeApi}}/payment_intents/{{paymentIntent}}/confirm",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "payment_method",
+                  "value": "pm_card_visa",
+                  "type": "text"
+                }
+              ]
+            },
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{stripeSecretKey}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Simula al comprador pagando con la tarjeta de prueba 4242 4242 4242 4242."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('PaymentIntent succeeded', () => pm.expect(pm.response.json().status).to.eql('succeeded'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "ce2edd20-5254-5b20-a0ca-6678b69ffca3",
+          "name": "I3.5 Pagos confirma con Stripe y queda APROBADO (dispara la publicación)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "jwt={{sesionJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/{{idPago}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('APROBADO', () => pm.expect(pm.response.json().estado_pago).to.eql('APROBADO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "ac5fa1f2-83d4-5204-be60-48a33000debc",
+          "name": "I3.6 RabbitMQ recibió pago.realizado (Entradas) y pago.completado (Promociones)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{rabbitApi}}/queues/{{rabbitVhost}}/{{colaPagos}}/get",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"count\": 200, \"ackmode\": \"ack_requeue_true\", \"encoding\": \"auto\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{rabbitUser}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{rabbitPass}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Lee los mensajes de la cola de verificación SIN consumirlos (ackmode ack_requeue_true).",
+                  "// 404 = la cola aún no existe (Pagos todavía no publicó nada desde que arrancó): se trata como vacía.",
+                  "const lista = pm.response.code === 404 ? [] : pm.response.json();",
+                  "const mensajes = (Array.isArray(lista) ? lista : []).map(m => {",
+                  "  let cuerpo = {};",
+                  "  try { cuerpo = JSON.parse(m.payload); } catch (e) {}",
+                  "  return { clave: m.routing_key, cuerpo };",
+                  "});",
+                  "const idPago = pm.environment.get('idPago');",
+                  "const delPago = mensajes.filter(m => m.cuerpo.id_pago === idPago || (m.cuerpo.data && m.cuerpo.data.id_pago === idPago));",
+                  "console.log('Mensajes en ' + pm.environment.get('colaPagos') + ': ' + mensajes.length + ' (del pago ' + idPago + ': ' + delPago.map(m => m.clave).join(', ') + ')');",
+                  "",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const realizado = delPago.find(m => m.clave === 'pago.realizado');",
+                  "pm.test('pago.realizado publicado en ticketu.events', () => pm.expect(realizado, 'mensaje pago.realizado').to.be.ok);",
+                  "pm.test('pago.realizado trae reserva, usuario, estado y monto', () => {",
+                  "  const c = realizado.cuerpo;",
+                  "  pm.expect(c.id_reserva).to.eql(pm.environment.get('idReserva'));",
+                  "  pm.expect(c.id_usuario).to.eql(pm.environment.get('idUsuario'));",
+                  "  pm.expect(c.estado_pago).to.eql('APROBADO');",
+                  "  pm.expect(c.monto).to.eql(Number(pm.environment.get('total')));",
+                  "});",
+                  "pm.test('pago.completado publicado para Promociones', () => pm.expect(delPago.some(m => m.clave === 'pago.completado')).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "d0d1bb00-0410-5f48-9400-55eb403bb034",
+          "name": "I3.7 Entradas tiene su consumidor conectado a su cola (entradas.pagos)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{rabbitApi}}/queues/{{rabbitVhost}}/{{colaEntradas}}",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{rabbitUser}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{rabbitPass}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('la cola de Entradas existe', () => pm.response.to.have.status(200));",
+                  "const q = pm.response.json();",
+                  "pm.test('Entradas está consumiendo (consumers ≥ 1)', () => pm.expect(q.consumers).to.be.at.least(1));",
+                  "console.log('entradas.pagos: consumers=' + q.consumers + ', mensajes pendientes=' + q.messages);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "HU 3.1 · Reembolso por staff y evento pago.reembolsado",
+      "item": [
+        {
+          "id": "1bd27f4a-dc10-56e6-a9dc-96eff354bc25",
+          "name": "R.1 Iniciar sesión en Auth como staff QA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{gatewayUrl}}{{authLoginPath}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"{{staffEmail}}\", \"password\": \"{{compradorPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Auth responde 2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));",
+                  "let jwt = pm.cookies.get('jwt');",
+                  "if (!jwt) {",
+                  "  const setCookie = pm.response.headers.all().filter(h => h.key.toLowerCase() === 'set-cookie').map(h => h.value).join(';');",
+                  "  const m = setCookie.match(/(?:^|[;,\\s])jwt=([^;]+)/);",
+                  "  if (m) jwt = m[1];",
+                  "}",
+                  "pm.test('cookie jwt del staff', () => pm.expect(jwt).to.be.a('string').and.not.empty);",
+                  "if (jwt) pm.environment.set('staffJwt', jwt);",
+                  "pm.cookies.jar().clear(pm.request.url, () => {});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "1435edc0-04ec-52be-ac30-9beb229d3da0",
+          "name": "R.2 Error: reembolso sin motivo → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{staffJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/{{idPago}}/reembolso",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"motivo\": \"\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));",
+                  "pm.test('error VALIDACION_FALLIDA', () => pm.expect(pm.response.json().error).to.eql('VALIDACION_FALLIDA'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "3a4e264b-b204-5687-bc40-389ab6c4ba5c",
+          "name": "R.3 Staff reembolsa el pago APROBADO (Stripe en modo prueba)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Cookie",
+                "value": "jwt={{staffJwt}}"
+              }
+            ],
+            "url": "{{gatewayUrl}}/api/pagos/{{idPago}}/reembolso",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"motivo\": \"Prueba de integración en workstation (Evaluación 4)\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('pago REEMBOLSADO con su reembolso registrado', () => {",
+                  "  pm.expect(b.estado_pago).to.eql('REEMBOLSADO');",
+                  "  pm.expect(b.accion).to.eql('REEMBOLSADO');",
+                  "  pm.expect(b.reembolso, 'reembolso').to.be.ok;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "ec62a961-c474-5555-a454-b2b5d44e30d1",
+          "name": "R.4 RabbitMQ recibió pago.reembolsado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{rabbitApi}}/queues/{{rabbitVhost}}/{{colaPagos}}/get",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"count\": 200, \"ackmode\": \"ack_requeue_true\", \"encoding\": \"auto\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{rabbitUser}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{rabbitPass}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Lee los mensajes de la cola de verificación SIN consumirlos (ackmode ack_requeue_true).",
+                  "// 404 = la cola aún no existe (Pagos todavía no publicó nada desde que arrancó): se trata como vacía.",
+                  "const lista = pm.response.code === 404 ? [] : pm.response.json();",
+                  "const mensajes = (Array.isArray(lista) ? lista : []).map(m => {",
+                  "  let cuerpo = {};",
+                  "  try { cuerpo = JSON.parse(m.payload); } catch (e) {}",
+                  "  return { clave: m.routing_key, cuerpo };",
+                  "});",
+                  "const idPago = pm.environment.get('idPago');",
+                  "const delPago = mensajes.filter(m => m.cuerpo.id_pago === idPago || (m.cuerpo.data && m.cuerpo.data.id_pago === idPago));",
+                  "console.log('Mensajes en ' + pm.environment.get('colaPagos') + ': ' + mensajes.length + ' (del pago ' + idPago + ': ' + delPago.map(m => m.clave).join(', ') + ')');",
+                  "",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const r = delPago.find(m => m.clave === 'pago.reembolsado');",
+                  "pm.test('pago.reembolsado publicado en ticketu.events', () => pm.expect(r, 'mensaje pago.reembolsado').to.be.ok);",
+                  "pm.test('estado REEMBOLSADO en el mensaje', () => pm.expect(r.cuerpo.estado_pago).to.eql('REEMBOLSADO'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
