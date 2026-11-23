@@ -242,6 +242,18 @@ cuenta al construirse (build arg `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`):
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51UAXQpJSw5u9Hxp8AHwd9H19BED1kNB8M2lt0Hb0zi9r1AY63lO89ykP86V2NUO46yTHqGgbSzJAABeZVZ9HIoWO00ecgJ1rZL
 ```
 
+Es una llave **publicable** (pensada para ir en el navegador; no permite cobrar ni leer datos) y pertenece a la misma
+cuenta de prueba que la llave secreta de `backend/.env.workstation.example` (verificado el 23/11/2026). La agrega el
+**Platform Team** al construir el front común (FrontendTitec ya la recibe en su `docker-compose.yml` y `Dockerfile`).
+En el workstation, dentro de la carpeta del front común, en `cmd`:
+
+```bat
+echo NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51UAXQpJSw5u9Hxp8AHwd9H19BED1kNB8M2lt0Hb0zi9r1AY63lO89ykP86V2NUO46yTHqGgbSzJAABeZVZ9HIoWO00ecgJ1rZL>> .env
+docker compose up -d --build
+```
+
+Sin esa llave, la pantalla de pago muestra "Falta la llave de Stripe" y no se puede pagar con tarjeta.
+
 Tarjeta de prueba: `4242 4242 4242 4242`, cualquier fecha futura y cualquier CVC. Para no usar Stripe:
 `PASARELA=mock` en `backend/.env` y el pago se aprueba con el paso 4b del flujo por consola.
 
@@ -314,6 +326,9 @@ docker exec pagos-db psql -U postgres -d pagos_db -c \
 | 503 `ENTRADAS_NO_DISPONIBLE` | El Gateway no llega a Entradas: `ENTRADAS_SERVICE_URL` en el `.env` del Gateway; el log de Pagos dice el motivo |
 | `"entradas_via":"directo"` en el health | Hay un `ENTRADAS_URL_DOCKER` en `.env`: borrarlo y `docker compose up -d` |
 | Log `RabbitMQ publicar ... → error` | RabbitMQ no disponible o credenciales distintas: `BROKER_URL_DOCKER` en `.env`. Pagos sigue funcionando |
+| 502 `ERROR_PASARELA` al iniciar el pago | `docker logs pagos-service 2>&1 \| findstr Stripe` muestra el motivo exacto: sin respuesta (red o `STRIPE_TIMEOUT_MS`, por defecto 10 s, con un reintento), llave secreta rechazada (`STRIPE_SECRET_KEY`) u otro error de Stripe |
+| 422 `MONTO_NO_PERMITIDO` | Stripe no cobra montos menores a ~50 centavos de dólar (unos 500 CLP): usar un evento con precio mayor |
+| "Falta la llave de Stripe" en la pantalla de pago | El front común se construyó sin `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (sección 6) |
 | Cambié `.env` y no se nota | `docker compose up -d` (recrea el contenedor) |
 
 Reinstalar desde cero (borra los datos de Pagos): `docker compose down -v && docker compose up -d --build`

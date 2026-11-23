@@ -178,8 +178,9 @@ paths:
               example: { error: CONFLICTO_IDEMPOTENCIA, mensaje: 'La reserva res-98765 ya tiene un pago registrado con datos distintos' }
         '422':
           description: |
-            La orden no coincide con la registrada en Entradas (`ORDEN_INCONSISTENTE`)
-            o Entradas no reconoce la reserva (`RESERVA_NO_ENCONTRADA`).
+            La orden no coincide con la registrada en Entradas (`ORDEN_INCONSISTENTE`),
+            Entradas no reconoce la reserva (`RESERVA_NO_ENCONTRADA`) o Stripe no acepta cobrar
+            ese monto, por ejemplo menos de ~50 centavos de dólar (`MONTO_NO_PERMITIDO`).
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -735,7 +736,10 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     ErrorPasarela:
-      description: Stripe rechazó la operación o no respondió a tiempo (`ERROR_PASARELA`).
+      description: |
+        Stripe rechazó la operación o no respondió (`ERROR_PASARELA`). Cada llamada espera hasta
+        `STRIPE_TIMEOUT_MS` (10 s por defecto) y las creaciones, que llevan Idempotency-Key, se reintentan
+        una vez. El motivo queda en el log de `pagos-service` (líneas `[integración] … Stripe`).
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }

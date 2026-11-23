@@ -169,6 +169,73 @@ describe('Integración Stripe (sin red)', () => {
     await assert.rejects(pasarela.consultarSesion('cs_3'), (e: AppError) => e.codigo === 'ERROR_PASARELA' && /No such/.test(e.message));
   });
 
+  const intentoBase = { id_pago: 'pago-9', id_reserva: 'res-9', id_evento: 'evt-9', monto: 400, cantidad_entradas: 1 };
+
+  it('un monto bajo el mínimo de Stripe responde 422 MONTO_NO_PERMITIDO (no 502)', async () => {
+    const pasarela = pasarelaConFetch(
+      [{ status: 400, body: { error: { code: 'amount_too_small', type: 'invalid_request_error', message: 'Amount must convert to at least 50 cents.' } } }],
+      [],
+    );
+    await assert.rejects(pasarela.crearIntento(intentoBase), (e: AppError) => e.status === 422 && e.codigo === 'MONTO_NO_PERMITIDO');
+  });
+
+  it('una llave secreta rechazada se informa sin mostrar la llave', async () => {
+    const pasarela = pasarelaConFetch(
+      [{ status: 401, body: { error: { type: 'invalid_request_error', message: 'Invalid API Key provided: sk_test_abc123' } } }],
+      [],
+    );
+    await assert.rejects(
+      pasarela.crearIntento(intentoBase),
+      (e: AppError) => e.status === 502 && /STRIPE_SECRET_KEY/.test(e.message) && !/sk_test_abc123/.test(e.message),
+    );
+  });
+
+  it('si Stripe no responde a tiempo reintenta una vez con la misma Idempotency-Key', async () => {
+    const llamadas: Array<{ url: string; init?: RequestInit }> = [];
+    let n = 0;
+    const fetchLento = (async (url: string | URL | Request, init?: RequestInit) => {
+      llamadas.push({ url: String(url), init });
+      n++;
+      if (n === 1) {
+        const error = new Error('The operation was aborted due to timeout');
+        error.name = 'TimeoutError';
+        throw error;
+      }
+      return new Response(JSON.stringify({ id: 'pi_ok', client_secret: 'pi_ok_secret_x' }), { status: 200 });
+    }) as typeof fetch;
+    const pasarela = new StripePasarela({
+      secretKey: 'sk_test_x',
+      webhookSecret: secretoWebhook,
+      timeoutMs: 1000,
+      urlExito: 'http://front/',
+      urlCancelacion: 'http://front/',
+      fetchImpl: fetchLento,
+    });
+    const intento = await pasarela.crearIntento(intentoBase);
+    assert.equal(intento.id, 'pi_ok');
+    assert.equal(llamadas.length, 2);
+    const claves = llamadas.map((l) => (l.init?.headers as Record<string, string>)['Idempotency-Key']);
+    assert.deepEqual(claves, ['pagos-intento-pago-9', 'pagos-intento-pago-9']);
+  });
+
+  it('si Stripe sigue sin responder tras el reintento responde 502 ERROR_PASARELA con el motivo', async () => {
+    const llamadas: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchCaido = (async (url: string | URL | Request, init?: RequestInit) => {
+      llamadas.push({ url: String(url), init });
+      throw new TypeError('fetch failed');
+    }) as typeof fetch;
+    const pasarela = new StripePasarela({
+      secretKey: 'sk_test_x',
+      webhookSecret: secretoWebhook,
+      timeoutMs: 1000,
+      urlExito: 'http://front/',
+      urlCancelacion: 'http://front/',
+      fetchImpl: fetchCaido,
+    });
+    await assert.rejects(pasarela.crearIntento(intentoBase), (e: AppError) => e.codigo === 'ERROR_PASARELA' && /contactar a Stripe/.test(e.message));
+    assert.equal(llamadas.length, 2);
+  });
+
   it('acepta un webhook con firma válida y rechaza firmas inválidas o antiguas', () => {
     const pasarela = pasarelaConFetch([], []);
     const cuerpo = JSON.stringify({

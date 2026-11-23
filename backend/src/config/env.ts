@@ -120,7 +120,8 @@ export function cargarConfig(): Config {
     pasarela: opcion('PASARELA', ['mock', 'stripe'] as const, 'mock'),
     stripeSecretKey: texto('STRIPE_SECRET_KEY', ''),
     stripeWebhookSecret: texto('STRIPE_WEBHOOK_SECRET', ''),
-    stripeTimeoutMs: entero('STRIPE_TIMEOUT_MS', 1200),
+    // Stripe está fuera del país (TLS + red del workstation): 1,2 s era poco para la primera conexión.
+    stripeTimeoutMs: entero('STRIPE_TIMEOUT_MS', 10000),
     checkoutExpiracionMin: entero('CHECKOUT_EXPIRACION_MIN', 30),
     frontendUrl: texto('FRONTEND_URL', 'http://localhost:5173').replace(/\/+$/, ''),
     checkoutEmailDefecto: texto('CHECKOUT_EMAIL_DEFECTO', ''),

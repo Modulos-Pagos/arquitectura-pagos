@@ -169,7 +169,7 @@ respondiendo.
 
 ## Pruebas automáticas
 
-- Pruebas del backend (106, incluyen Auth, Gateway y broker; las de RabbitMQ real con `RABBITMQ_URL_TEST`): `cd backend && npm ci && npm test` (requiere PostgreSQL; ver [`backend/README.md`](backend/README.md)).
+- Pruebas del backend (110, incluyen Auth, Gateway, Stripe y broker; las de RabbitMQ real con `RABBITMQ_URL_TEST`): `cd backend && npm ci && npm test` (requiere PostgreSQL; ver [`backend/README.md`](backend/README.md)).
 - **Evaluación 4 — casos de prueba ejecutados en workstation** contra Auth, Entradas (por el Gateway) y RabbitMQ reales,
   con éxito y error por integración: [`docs/calidad/pruebas-integracion-workstation.md`](docs/calidad/pruebas-integracion-workstation.md)
   (colección [`backend/postman/Workstation-E4.postman_collection.json`](backend/postman/Workstation-E4.postman_collection.json)).

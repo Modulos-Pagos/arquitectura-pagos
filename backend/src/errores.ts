@@ -46,6 +46,8 @@ export const errores = {
     new AppError(422, 'RESERVA_NO_ENCONTRADA', `Entradas no reconoce la reserva ${idReserva}`),
   firmaWebhookInvalida: (mensaje: string) => new AppError(400, 'FIRMA_WEBHOOK_INVALIDA', mensaje),
   pasarela: (mensaje: string) => new AppError(502, 'ERROR_PASARELA', `Error en la pasarela de pago: ${mensaje}`),
+  montoNoPermitido: (mensaje: string) =>
+    new AppError(422, 'MONTO_NO_PERMITIDO', `Stripe no acepta cobrar este monto: ${mensaje}`),
   entradasNoDisponible: (mensaje: string) =>
     new AppError(503, 'ENTRADAS_NO_DISPONIBLE', `No fue posible validar la orden con Entradas: ${mensaje}`),
   authNoDisponible: (mensaje: string) =>

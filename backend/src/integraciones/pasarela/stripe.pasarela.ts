@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { errores } from '../../errores';
+import { registrarIntegracion } from '../../utils/log-integracion';
 import {
   interpretarEventoStripe,
   type ConsultaIntento,
@@ -28,6 +29,11 @@ import {
  *
  * Importante: CLP es una moneda sin decimales en Stripe, por eso unit_amount = monto
  * (NO se multiplica por 100).
+ *
+ * Cada llamada queda en el log ([integración] Stripe …) con su resultado y duración. Las creaciones llevan
+ * Idempotency-Key, así que ante una falla de red o un tiempo de espera agotado se reintentan una vez sin
+ * riesgo de cobro doble. Un monto que Stripe no acepta (p. ej. menor al mínimo de ~50 centavos de dólar)
+ * responde 422 MONTO_NO_PERMITIDO en vez de 502.
  */
 
 type Fetch = typeof fetch;
@@ -102,7 +108,7 @@ export class StripePasarela implements PasarelaPago {
       ],
       metadata: { id_pago: datos.id_pago, id_reserva: datos.id_reserva, id_evento: datos.id_evento ?? undefined },
       payment_intent_data: { metadata: { id_pago: datos.id_pago, id_reserva: datos.id_reserva } },
-    });
+    }, `pagos-checkout-${datos.id_pago}`);
     if (typeof sesion.id !== 'string' || typeof sesion.url !== 'string') {
       throw errores.pasarela('Stripe no devolvió la URL de checkout');
     }
@@ -132,7 +138,7 @@ export class StripePasarela implements PasarelaPago {
       description: `Entradas TicketU (${datos.cantidad_entradas})${datos.id_evento ? ` - evento ${datos.id_evento}` : ''} - reserva ${datos.id_reserva}`,
       receipt_email: this.opciones.emailPorDefecto || undefined,
       metadata: { id_pago: datos.id_pago, id_reserva: datos.id_reserva, id_evento: datos.id_evento ?? undefined },
-    });
+    }, `pagos-intento-${datos.id_pago}`);
     if (typeof intento.id !== 'string' || typeof intento.client_secret !== 'string') {
       throw errores.pasarela('Stripe no devolvió el client_secret del PaymentIntent');
     }
@@ -157,7 +163,7 @@ export class StripePasarela implements PasarelaPago {
       amount: datos.monto,
       reason: 'requested_by_customer',
       metadata: { id_pago: datos.id_pago },
-    });
+    }, `pagos-reembolso-${datos.id_pago}`);
     if (reembolso.status === 'failed' || reembolso.status === 'canceled') {
       throw errores.pasarela(`El reembolso quedó en estado ${String(reembolso.status)}`);
     }
@@ -200,32 +206,56 @@ export class StripePasarela implements PasarelaPago {
     metodo: 'GET' | 'POST',
     ruta: string,
     cuerpo?: Record<string, unknown>,
+    claveIdempotencia?: string,
   ): Promise<Record<string, unknown>> {
-    let respuesta: Response;
-    try {
-      respuesta = await this.fetch(`${this.apiBase}${ruta}`, {
-        method: metodo,
-        headers: {
-          Authorization: `Bearer ${this.opciones.secretKey}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: metodo === 'POST' ? codificarFormulario(cuerpo ?? {}).join('&') : undefined,
-        signal: AbortSignal.timeout(this.opciones.timeoutMs),
-      });
-    } catch (error) {
-      const nombre = (error as Error).name;
-      throw errores.pasarela(nombre === 'TimeoutError' ? 'Stripe no respondió a tiempo' : 'No se pudo contactar a Stripe');
+    // GET y POST con Idempotency-Key se pueden repetir sin efectos dobles: un reintento ante falla de red.
+    const intentos = metodo === 'GET' || claveIdempotencia ? 2 : 1;
+    const operacion = `${metodo} ${ruta.replace(/\/(pi|cs|re)_[A-Za-z0-9_]+/g, '/$1_…')}`;
+    let ultimoError: Error | null = null;
+    for (let intento = 1; intento <= intentos; intento++) {
+      const inicio = performance.now();
+      let respuesta: Response;
+      try {
+        respuesta = await this.fetch(`${this.apiBase}${ruta}`, {
+          method: metodo,
+          headers: {
+            Authorization: `Bearer ${this.opciones.secretKey}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            ...(claveIdempotencia ? { 'Idempotency-Key': claveIdempotencia } : {}),
+          },
+          body: metodo === 'POST' ? codificarFormulario(cuerpo ?? {}).join('&') : undefined,
+          signal: AbortSignal.timeout(this.opciones.timeoutMs),
+        });
+      } catch (error) {
+        const tiempo = (error as Error).name === 'TimeoutError';
+        const motivo = tiempo
+          ? `Stripe no respondió en ${this.opciones.timeoutMs} ms (STRIPE_TIMEOUT_MS)`
+          : `No se pudo contactar a Stripe (${(error as Error).message || 'sin red'})`;
+        registrarIntegracion('Stripe', operacion, `sin respuesta: ${motivo}${intento < intentos ? ' → reintento' : ''}`, inicio);
+        ultimoError = errores.pasarela(motivo);
+        continue;
+      }
+      let json: Record<string, unknown> = {};
+      try {
+        json = (await respuesta.json()) as Record<string, unknown>;
+      } catch {
+        /* respuesta sin JSON */
+      }
+      if (respuesta.ok) {
+        registrarIntegracion('Stripe', operacion, String(respuesta.status), inicio);
+        return json;
+      }
+      const error = (json.error ?? {}) as { message?: string; code?: string; type?: string };
+      const detalle = error.message ?? `HTTP ${respuesta.status}`;
+      registrarIntegracion('Stripe', operacion, `${respuesta.status} ${error.code ?? error.type ?? ''}: ${detalle}`.replace(/sk_(test|live)_[A-Za-z0-9]+/g, 'sk_…'), inicio);
+      if (error.code === 'amount_too_small' || error.code === 'amount_too_large') {
+        throw errores.montoNoPermitido(detalle);
+      }
+      if (respuesta.status === 401) {
+        throw errores.pasarela('Stripe rechazó la llave secreta (revise STRIPE_SECRET_KEY)');
+      }
+      throw errores.pasarela(detalle.replace(/sk_(test|live)_[A-Za-z0-9]+/g, 'sk_…'));
     }
-    let json: Record<string, unknown> = {};
-    try {
-      json = (await respuesta.json()) as Record<string, unknown>;
-    } catch {
-      /* respuesta sin JSON */
-    }
-    if (!respuesta.ok) {
-      const detalle = (json.error as { message?: string } | undefined)?.message ?? `HTTP ${respuesta.status}`;
-      throw errores.pasarela(detalle);
-    }
-    return json;
+    throw ultimoError ?? errores.pasarela('No se pudo contactar a Stripe');
   }
 }

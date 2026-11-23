@@ -33,7 +33,7 @@ Vale 30%: entrega integrada (20%) y presentación (10%), con la misma rúbrica.
 | **GE2** Documentación de historias | Descripción, criterios, DoD y política de seguridad | Las HU tienen criterios Gherkin, DoD y seguridad | Agregar DoD y política de seguridad a INT-01…INT-05 (no la tienen) | Simón y Ricardo |
 | **GE3** Avance consistente | Estado de las historias = lo que funciona en workstation | — | Cerrar los issues de la Evaluación 3 (#35–#43) ya verificados; decidir HU 3.1, 3.3 y 3.4 (ver sección 3) | Simón |
 | **GE4** Trabajo de integración | Ítems con criterios, contraparte, contrato y estado consistente | INT-01…INT-05 | Cerrar INT-04 (Promociones) cuando se verifique en workstation; enlazar cada ítem al caso de la colección | Ricardo |
-| **CA1** Pruebas de funcionalidad | Pruebas con evidencia de ejecución | 105 pruebas automáticas (`npm test`), evidencia en `backend/docs/evidencias/pruebas-funcionales.txt` | — (evidencia actualizada el 22/11) | Simón |
+| **CA1** Pruebas de funcionalidad | Pruebas con evidencia de ejecución | 109 pruebas automáticas (`npm test`), evidencia en `backend/docs/evidencias/pruebas-funcionales.txt` | — (evidencia actualizada el 23/11) | Simón |
 | **CA2** Pruebas de integración | Éxito y error por integración, **ejecutadas en workstation** | Colección `Workstation-E4` (25 casos, 60 verificaciones) y guía `docs/calidad/pruebas-integracion-workstation.md` | Ejecutarla en workstation y subir el JUnit y la captura | Ricardo |
 
 ## 2. Verificación en workstation (antes del miércoles 25, 14:30)
@@ -91,3 +91,19 @@ Vale 30%: entrega integrada (20%) y presentación (10%), con la misma rúbrica.
 
 Preparar antes: sesión iniciada en AnyDesk, pestañas abiertas (front común, Swagger, RabbitMQ, diagrama), una
 terminal en `pagos\backend` con `cmd`, y la colección ya ejecutada esa mañana (además de ejecutarla en vivo).
+
+## 5. Observaciones de la auditoría del Platform Team (22/11) y qué se hizo
+
+Fuente: *Informe técnico de auditoría — Platform Team vs. Entrega 4* (evidencias del 22/11/2026 en el workstation).
+La auditoría confirmó que Pagos responde igual directo y por el Gateway (200/200, mismo cuerpo SHA-256) y dejó tres
+observaciones para Pagos:
+
+| Observación | Causa probable | Qué se hizo (23/11) | Estado |
+|---|---|---|---|
+| **502 `ERROR_PASARELA` al iniciar el pago** | El tiempo máximo por llamada a Stripe era 1,2 s; desde el workstation la primera conexión a Stripe (fuera del país, con TLS) puede tardar más. El log no decía el motivo. Además, un monto bajo el mínimo de Stripe (~500 CLP) también terminaba en 502. | Tiempo máximo de 10 s (`STRIPE_TIMEOUT_MS`), un reintento seguro con `Idempotency-Key` ante falla de red, cada llamada a Stripe queda en el log (`[integración] … Stripe POST /payment_intents → 200 (480 ms)` o el motivo del error, sin mostrar la llave) y un monto que Stripe no acepta responde `422 MONTO_NO_PERMITIDO`. 4 pruebas nuevas. Se verificó que la llave secreta sigue válida. | Corregido en `main`; **reinstalar Pagos en el workstation** (`git pull` y `docker compose up -d --build`) y ejecutar la colección `Workstation-E4` |
+| **Falta la llave publicable `pk_test_…` para el front común** | El front común se construye sin `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, así que la pantalla de pago muestra "Falta la llave de Stripe". | Llave verificada (misma cuenta de prueba que la secreta) y documentada en `INSTALACION.md` sección 6, con el comando para agregarla al build del front común. | **Enviar la llave al Platform Team** para que reconstruya el front común |
+| **Probar una transacción real en modo prueba y sus eventos** | — | La colección `Workstation-E4` lo hace contra Auth, Entradas, Stripe y RabbitMQ reales (casos I2.5 a I3.7 y R.1 a R.4). | Ejecutar en el workstation y guardar la evidencia |
+
+Otra observación que nos afecta: la cola **`promociones.pagos` tenía 0 consumidores**. Pagos publica
+`pago.completado` correctamente (caso I3.6), pero Promociones debe tener su consumidor activo en el workstation para
+que la integración cuente como consumida (BE3). Hay que confirmarlo con Promociones.
