@@ -326,7 +326,7 @@ docker exec pagos-db psql -U postgres -d pagos_db -c \
 | 503 `ENTRADAS_NO_DISPONIBLE` | El Gateway no llega a Entradas: `ENTRADAS_SERVICE_URL` en el `.env` del Gateway; el log de Pagos dice el motivo |
 | `"entradas_via":"directo"` en el health | Hay un `ENTRADAS_URL_DOCKER` en `.env`: borrarlo y `docker compose up -d` |
 | Log `RabbitMQ publicar ... → error` | RabbitMQ no disponible o credenciales distintas: `BROKER_URL_DOCKER` en `.env`. Pagos sigue funcionando |
-| 502 `ERROR_PASARELA` al iniciar el pago | `docker logs pagos-service 2>&1 \| findstr Stripe` muestra el motivo exacto: sin respuesta (red o `STRIPE_TIMEOUT_MS`, por defecto 10 s, con un reintento), llave secreta rechazada (`STRIPE_SECRET_KEY`) u otro error de Stripe |
+| 502 `ERROR_PASARELA` al iniciar el pago | `docker logs pagos-service 2>&1 \| findstr Stripe` muestra el motivo exacto: sin respuesta (red o `STRIPE_TIMEOUT_MS`, por defecto 10 s, con un reintento; la conexión con Stripe se mantiene abierta para responder en menos de 2 s), llave secreta rechazada (`STRIPE_SECRET_KEY`) u otro error de Stripe |
 | 422 `MONTO_NO_PERMITIDO` | Stripe no cobra montos menores a ~50 centavos de dólar (unos 500 CLP): usar un evento con precio mayor |
 | "Falta la llave de Stripe" en la pantalla de pago | El front común se construyó sin `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (sección 6) |
 | Cambié `.env` y no se nota | `docker compose up -d` (recrea el contenedor) |

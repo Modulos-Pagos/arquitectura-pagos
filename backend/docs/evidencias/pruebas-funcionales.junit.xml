@@ -1,161 +1,161 @@
 <?xml version="1.0" encoding="utf-8"?>
 <testsuites>
-	<testsuite name="Configuración de las integraciones (sin direcciones fijas en el código)" time="0.009103" disabled="0" errors="0" tests="6" failures="0" skipped="0" hostname="vm">
-		<testcase name="sin AUTH_BASE_URL no arranca (no hay un Auth por defecto en localhost)" time="0.002882" classname="test"/>
-		<testcase name="con ENTRADAS_MODO=http exige API_GATEWAY_URL" time="0.000796" classname="test"/>
-		<testcase name="con BROKER_MODO=rabbitmq exige BROKER_URL (sin credenciales por defecto)" time="0.000786" classname="test"/>
-		<testcase name="las llamadas a Entradas usan API_GATEWAY_URL y el health las informa como &amp;quot;api-gateway&amp;quot;" time="0.001447" classname="test"/>
-		<testcase name="si ENTRADAS_BASE_URL apunta directo a Entradas, se informa como &amp;quot;directo&amp;quot;" time="0.000656" classname="test"/>
-		<testcase name="avisa al arrancar si una dirección de integración apunta a localhost" time="0.000768" classname="test"/>
+	<testsuite name="Configuración de las integraciones (sin direcciones fijas en el código)" time="0.003970" disabled="0" errors="0" tests="6" failures="0" skipped="0" hostname="vm">
+		<testcase name="sin AUTH_BASE_URL no arranca (no hay un Auth por defecto en localhost)" time="0.001243" classname="test"/>
+		<testcase name="con ENTRADAS_MODO=http exige API_GATEWAY_URL" time="0.000332" classname="test"/>
+		<testcase name="con BROKER_MODO=rabbitmq exige BROKER_URL (sin credenciales por defecto)" time="0.000327" classname="test"/>
+		<testcase name="las llamadas a Entradas usan API_GATEWAY_URL y el health las informa como &amp;quot;api-gateway&amp;quot;" time="0.000716" classname="test"/>
+		<testcase name="si ENTRADAS_BASE_URL apunta directo a Entradas, se informa como &amp;quot;directo&amp;quot;" time="0.000235" classname="test"/>
+		<testcase name="avisa al arrancar si una dirección de integración apunta a localhost" time="0.000320" classname="test"/>
 	</testsuite>
-	<testsuite name="Contrato Entradas v2.3 — request tal como lo envía Entradas" time="0.392110" disabled="0" errors="0" tests="5" failures="0" skipped="0" hostname="vm">
-		<testcase name="acepta el request de Entradas con la cookie jwt reenviada (sin id_evento), por /api/v1 y por el Gateway" time="0.083903" classname="test"/>
-		<testcase name="ya no acepta Authorization: Bearer ni token_sesion (401)" time="0.011191" classname="test"/>
-		<testcase name="el reintento de Entradas con el mismo id_reserva devuelve el mismo pago (200)" time="0.012782" classname="test"/>
-		<testcase name="rechaza una cookie jwt inválida o ausente (401)" time="0.007748" classname="test"/>
-		<testcase name="si envían id_evento vacío se informa el error (400)" time="0.004679" classname="test"/>
+	<testsuite name="Contrato Entradas v2.3 — request tal como lo envía Entradas" time="0.222460" disabled="0" errors="0" tests="5" failures="0" skipped="0" hostname="vm">
+		<testcase name="acepta el request de Entradas con la cookie jwt reenviada (sin id_evento), por /api/v1 y por el Gateway" time="0.065246" classname="test"/>
+		<testcase name="ya no acepta Authorization: Bearer ni token_sesion (401)" time="0.006829" classname="test"/>
+		<testcase name="el reintento de Entradas con el mismo id_reserva devuelve el mismo pago (200)" time="0.008955" classname="test"/>
+		<testcase name="rechaza una cookie jwt inválida o ausente (401)" time="0.004450" classname="test"/>
+		<testcase name="si envían id_evento vacío se informa el error (400)" time="0.003506" classname="test"/>
 	</testsuite>
-	<testsuite name="Invocación a Entradas/Inventario (BE2)" time="0.527714" disabled="0" errors="0" tests="7" failures="0" skipped="0" hostname="vm">
-		<testcase name="si la orden coincide con Entradas se crea el pago y se reenvía la cookie de sesión" time="0.074566" classname="test"/>
-		<testcase name="si el total fue alterado responde 422 ORDEN_INCONSISTENTE y no crea el pago" time="0.026705" classname="test"/>
-		<testcase name="si Entradas no conoce la reserva responde 422 RESERVA_NO_ENCONTRADA" time="0.009411" classname="test"/>
-		<testcase name="si Entradas falla responde 503 ENTRADAS_NO_DISPONIBLE" time="0.007473" classname="test"/>
-		<testcase name="si Entradas no responde a tiempo, corta a los 500 ms (respeta el SLA de 2000 ms)" time="0.304355" classname="test"/>
-		<testcase name="lee también los nombres de campos del API de reservas de Entradas (monto_total, cantidad_entrada, hold_id)" time="0.001466" classname="test"/>
-		<testcase name="deja una línea de log por llamada, sin la cookie ni el token (evidencia BE1)" time="0.001013" classname="test"/>
+	<testsuite name="Invocación a Entradas/Inventario (BE2)" time="0.483440" disabled="0" errors="0" tests="7" failures="0" skipped="0" hostname="vm">
+		<testcase name="si la orden coincide con Entradas se crea el pago y se reenvía la cookie de sesión" time="0.057987" classname="test"/>
+		<testcase name="si el total fue alterado responde 422 ORDEN_INCONSISTENTE y no crea el pago" time="0.011385" classname="test"/>
+		<testcase name="si Entradas no conoce la reserva responde 422 RESERVA_NO_ENCONTRADA" time="0.005690" classname="test"/>
+		<testcase name="si Entradas falla responde 503 ENTRADAS_NO_DISPONIBLE" time="0.005822" classname="test"/>
+		<testcase name="si Entradas no responde a tiempo, corta a los 500 ms (respeta el SLA de 2000 ms)" time="0.303515" classname="test"/>
+		<testcase name="lee también los nombres de campos del API de reservas de Entradas (monto_total, cantidad_entrada, hold_id)" time="0.001435" classname="test"/>
+		<testcase name="deja una línea de log por llamada, sin la cookie ni el token (evidencia BE1)" time="0.000694" classname="test"/>
 	</testsuite>
-	<testsuite name="Invocación a Entradas a través del API Gateway (Evaluación 3, tipo B)" time="0.003514" disabled="0" errors="0" tests="5" failures="0" skipped="0" hostname="vm">
-		<testcase name="envía un x-request-id para correlacionar la llamada con el log del Gateway" time="0.000614" classname="test"/>
-		<testcase name="un 404 ROUTE_NOT_FOUND del Gateway no se confunde con una reserva inexistente: 503" time="0.000698" classname="test"/>
-		<testcase name="un 404 de Entradas (sin código del Gateway) sigue siendo RESERVA_NO_ENCONTRADA" time="0.000458" classname="test"/>
-		<testcase name="502 BAD_GATEWAY y 503 SERVICE_NOT_CONFIGURED del Gateway → 503 ENTRADAS_NO_DISPONIBLE" time="0.000603" classname="test"/>
-		<testcase name="401 o 403 de Entradas → 503 ENTRADAS_NO_DISPONIBLE con un motivo comprensible (no se cobra)" time="0.000772" classname="test"/>
+	<testsuite name="Invocación a Entradas a través del API Gateway (Evaluación 3, tipo B)" time="0.002828" disabled="0" errors="0" tests="5" failures="0" skipped="0" hostname="vm">
+		<testcase name="envía un x-request-id para correlacionar la llamada con el log del Gateway" time="0.000483" classname="test"/>
+		<testcase name="un 404 ROUTE_NOT_FOUND del Gateway no se confunde con una reserva inexistente: 503" time="0.000593" classname="test"/>
+		<testcase name="un 404 de Entradas (sin código del Gateway) sigue siendo RESERVA_NO_ENCONTRADA" time="0.000349" classname="test"/>
+		<testcase name="502 BAD_GATEWAY y 503 SERVICE_NOT_CONFIGURED del Gateway → 503 ENTRADAS_NO_DISPONIBLE" time="0.000539" classname="test"/>
+		<testcase name="401 o 403 de Entradas → 503 ENTRADAS_NO_DISPONIBLE con un motivo comprensible (no se cobra)" time="0.000550" classname="test"/>
 	</testsuite>
-	<testsuite name="Operación" time="0.170910" disabled="0" errors="0" tests="2" failures="0" skipped="0" hostname="vm">
-		<testcase name="GET /health informa BD, pasarela y modos de Entradas, Auth y broker" time="0.050088" classname="test"/>
-		<testcase name="publica el Swagger propio y el de servicios consumidos" time="0.018925" classname="test"/>
+	<testsuite name="Operación" time="0.150814" disabled="0" errors="0" tests="2" failures="0" skipped="0" hostname="vm">
+		<testcase name="GET /health informa BD, pasarela y modos de Entradas, Auth y broker" time="0.052017" classname="test"/>
+		<testcase name="publica el Swagger propio y el de servicios consumidos" time="0.012803" classname="test"/>
 	</testsuite>
-	<testsuite name="POST /transacciones — crear pago (HU 1.1, HU 1.3)" time="0.148001" disabled="0" errors="0" tests="7" failures="0" skipped="0" hostname="vm">
-		<testcase name="crea el pago PENDIENTE con url_checkout y lo guarda en la BD" time="0.052945" classname="test"/>
-		<testcase name="es idempotente: el reintento de Entradas devuelve 200 con el mismo pago" time="0.029811" classname="test"/>
-		<testcase name="solicitudes simultáneas con la misma reserva generan un único pago" time="0.032431" classname="test"/>
-		<testcase name="responde 409 si la misma reserva llega con otro monto" time="0.013111" classname="test"/>
-		<testcase name="responde 400 con el detalle de los campos inválidos" time="0.005390" classname="test"/>
-		<testcase name="responde 400 si el body no es JSON" time="0.003903" classname="test"/>
-		<testcase name="responde 401 sin token o con token inválido" time="0.009458" classname="test"/>
+	<testsuite name="POST /transacciones — crear pago (HU 1.1, HU 1.3)" time="0.098718" disabled="0" errors="0" tests="7" failures="0" skipped="0" hostname="vm">
+		<testcase name="crea el pago PENDIENTE con url_checkout y lo guarda en la BD" time="0.028381" classname="test"/>
+		<testcase name="es idempotente: el reintento de Entradas devuelve 200 con el mismo pago" time="0.015330" classname="test"/>
+		<testcase name="solicitudes simultáneas con la misma reserva generan un único pago" time="0.030323" classname="test"/>
+		<testcase name="responde 409 si la misma reserva llega con otro monto" time="0.008792" classname="test"/>
+		<testcase name="responde 400 con el detalle de los campos inválidos" time="0.005611" classname="test"/>
+		<testcase name="responde 400 si el body no es JSON" time="0.004187" classname="test"/>
+		<testcase name="responde 401 sin token o con token inválido" time="0.005410" classname="test"/>
 	</testsuite>
-	<testsuite name="POST /transacciones con metodo &amp;quot;formulario&amp;quot; (Stripe Elements del front)" time="0.133647" disabled="0" errors="0" tests="7" failures="0" skipped="0" hostname="vm">
-		<testcase name="es el método por defecto: url_checkout lleva al front de Pagos y devuelve client_secret" time="0.016677" classname="test"/>
-		<testcase name="el reintento devuelve el mismo pago y vuelve a entregar el client_secret" time="0.012368" classname="test"/>
-		<testcase name="después de confirmar la tarjeta, el polling consulta el PaymentIntent y aprueba el pago" time="0.024125" classname="test"/>
-		<testcase name="el webhook payment_intent.succeeded aprueba el pago" time="0.016144" classname="test"/>
-		<testcase name="anular un pago del formulario PENDIENTE cancela el PaymentIntent (ANULADO) y uno aprobado se reembolsa" time="0.034055" classname="test"/>
-		<testcase name="GET /{id_pago}/checkout entrega al front el monto y el client_secret; sin secreto si ya se pagó" time="0.024169" classname="test"/>
-		<testcase name="rechaza un metodo desconocido (400)" time="0.005460" classname="test"/>
+	<testsuite name="POST /transacciones con metodo &amp;quot;formulario&amp;quot; (Stripe Elements del front)" time="0.070096" disabled="0" errors="0" tests="7" failures="0" skipped="0" hostname="vm">
+		<testcase name="es el método por defecto: url_checkout lleva al front de Pagos y devuelve client_secret" time="0.004872" classname="test"/>
+		<testcase name="el reintento devuelve el mismo pago y vuelve a entregar el client_secret" time="0.010218" classname="test"/>
+		<testcase name="después de confirmar la tarjeta, el polling consulta el PaymentIntent y aprueba el pago" time="0.010802" classname="test"/>
+		<testcase name="el webhook payment_intent.succeeded aprueba el pago" time="0.007945" classname="test"/>
+		<testcase name="anular un pago del formulario PENDIENTE cancela el PaymentIntent (ANULADO) y uno aprobado se reembolsa" time="0.019146" classname="test"/>
+		<testcase name="GET /{id_pago}/checkout entrega al front el monto y el client_secret; sin secreto si ya se pagó" time="0.013204" classname="test"/>
+		<testcase name="rechaza un metodo desconocido (400)" time="0.003566" classname="test"/>
 	</testsuite>
-	<testsuite name="GET /{id_pago} — polling de estado (HU 1.4, HU 1.6)" time="0.081169" disabled="0" errors="0" tests="5" failures="0" skipped="0" hostname="vm">
-		<testcase name="el dueño consulta su pago PENDIENTE" time="0.012347" classname="test"/>
-		<testcase name="otro usuario recibe 403; un usuario staff sí puede consultar" time="0.023794" classname="test"/>
-		<testcase name="responde 404 si no existe y 400 si el id no es UUID" time="0.008780" classname="test"/>
-		<testcase name="si el webhook no llegó, el polling consulta a la pasarela y aprueba el pago" time="0.020346" classname="test"/>
-		<testcase name="si la sesión expiró, el polling devuelve RECHAZADO con motivo" time="0.015198" classname="test"/>
+	<testsuite name="GET /{id_pago} — polling de estado (HU 1.4, HU 1.6)" time="0.047275" disabled="0" errors="0" tests="5" failures="0" skipped="0" hostname="vm">
+		<testcase name="el dueño consulta su pago PENDIENTE" time="0.006954" classname="test"/>
+		<testcase name="otro usuario recibe 403; un usuario staff sí puede consultar" time="0.010093" classname="test"/>
+		<testcase name="responde 404 si no existe y 400 si el id no es UUID" time="0.008104" classname="test"/>
+		<testcase name="si el webhook no llegó, el polling consulta a la pasarela y aprueba el pago" time="0.011053" classname="test"/>
+		<testcase name="si la sesión expiró, el polling devuelve RECHAZADO con motivo" time="0.010805" classname="test"/>
 	</testsuite>
-	<testsuite name="POST /webhooks/stripe — aviso de la pasarela (HU 1.3, HU 1.4)" time="0.070099" disabled="0" errors="0" tests="5" failures="0" skipped="0" hostname="vm">
-		<testcase name="checkout.session.completed aprueba el pago y guarda el evento" time="0.021555" classname="test"/>
-		<testcase name="un evento repetido por Stripe se ignora (duplicado: true)" time="0.017571" classname="test"/>
-		<testcase name="checkout.session.expired rechaza el pago" time="0.011435" classname="test"/>
-		<testcase name="no permite volver atrás: un expired tras aprobar no cambia el estado" time="0.016900" classname="test"/>
-		<testcase name="responde 400 si el cuerpo no es JSON" time="0.002206" classname="test"/>
+	<testsuite name="POST /webhooks/stripe — aviso de la pasarela (HU 1.3, HU 1.4)" time="0.048483" disabled="0" errors="0" tests="5" failures="0" skipped="0" hostname="vm">
+		<testcase name="checkout.session.completed aprueba el pago y guarda el evento" time="0.010494" classname="test"/>
+		<testcase name="un evento repetido por Stripe se ignora (duplicado: true)" time="0.013081" classname="test"/>
+		<testcase name="checkout.session.expired rechaza el pago" time="0.012356" classname="test"/>
+		<testcase name="no permite volver atrás: un expired tras aprobar no cambia el estado" time="0.010985" classname="test"/>
+		<testcase name="responde 400 si el cuerpo no es JSON" time="0.001320" classname="test"/>
 	</testsuite>
-	<testsuite name="POST /{id_pago}/reembolso — anular o reembolsar (HU 3.1, HU 3.3)" time="0.110213" disabled="0" errors="0" tests="6" failures="0" skipped="0" hostname="vm">
-		<testcase name="un pago PENDIENTE queda ANULADO (no se cobra)" time="0.021309" classname="test"/>
-		<testcase name="un pago APROBADO queda REEMBOLSADO y se registra el reembolso" time="0.028930" classname="test"/>
-		<testcase name="el reintento del reembolso es idempotente (ya_procesado: true)" time="0.020984" classname="test"/>
-		<testcase name="si el usuario pagó justo antes de anular, se reembolsa en vez de anular" time="0.012461" classname="test"/>
-		<testcase name="un pago RECHAZADO no se puede reembolsar (409)" time="0.014794" classname="test"/>
-		<testcase name="otro comprador no puede anular un pago ajeno (403) y el motivo es obligatorio (400)" time="0.011242" classname="test"/>
+	<testsuite name="POST /{id_pago}/reembolso — anular o reembolsar (HU 3.1, HU 3.3)" time="0.066052" disabled="0" errors="0" tests="6" failures="0" skipped="0" hostname="vm">
+		<testcase name="un pago PENDIENTE queda ANULADO (no se cobra)" time="0.013080" classname="test"/>
+		<testcase name="un pago APROBADO queda REEMBOLSADO y se registra el reembolso" time="0.010853" classname="test"/>
+		<testcase name="el reintento del reembolso es idempotente (ya_procesado: true)" time="0.018962" classname="test"/>
+		<testcase name="si el usuario pagó justo antes de anular, se reembolsa en vez de anular" time="0.007586" classname="test"/>
+		<testcase name="un pago RECHAZADO no se puede reembolsar (409)" time="0.008679" classname="test"/>
+		<testcase name="otro comprador no puede anular un pago ajeno (403) y el motivo es obligatorio (400)" time="0.006669" classname="test"/>
 	</testsuite>
-	<testsuite name="GET /api/v1/pagos — listado para Promociones e historial del usuario (HU 3.4)" time="0.053685" disabled="0" errors="0" tests="3" failures="0" skipped="0" hostname="vm">
-		<testcase name="un usuario staff obtiene los id_pago APROBADOS de un usuario (listado para Promociones)" time="0.037424" classname="test"/>
-		<testcase name="un comprador solo ve sus propios pagos" time="0.008453" classname="test"/>
-		<testcase name="pagina los resultados y valida los filtros" time="0.007493" classname="test"/>
+	<testsuite name="GET /api/v1/pagos — listado para Promociones e historial del usuario (HU 3.4)" time="0.025701" disabled="0" errors="0" tests="3" failures="0" skipped="0" hostname="vm">
+		<testcase name="un usuario staff obtiene los id_pago APROBADOS de un usuario (listado para Promociones)" time="0.017532" classname="test"/>
+		<testcase name="un comprador solo ve sus propios pagos" time="0.004360" classname="test"/>
+		<testcase name="pagina los resultados y valida los filtros" time="0.003657" classname="test"/>
 	</testsuite>
-	<testsuite name="DELETE /{id_pago} — eliminar un pago de la BD (solo staff)" time="0.115239" disabled="0" errors="0" tests="4" failures="0" skipped="0" hostname="vm">
-		<testcase name="staff elimina un pago ANULADO y deja de existir en la BD (404 al consultarlo)" time="0.023975" classname="test"/>
-		<testcase name="un pago RECHAZADO con eventos de webhook se elimina y los eventos quedan como evidencia" time="0.023263" classname="test"/>
-		<testcase name="no elimina pagos PENDIENTES, APROBADOS ni REEMBOLSADOS (409 PAGO_NO_ELIMINABLE)" time="0.043566" classname="test"/>
-		<testcase name="solo staff: el dueño y un organizador reciben 403; sin sesión 401; id inexistente 404" time="0.024019" classname="test"/>
+	<testsuite name="DELETE /{id_pago} — eliminar un pago de la BD (solo staff)" time="0.073681" disabled="0" errors="0" tests="4" failures="0" skipped="0" hostname="vm">
+		<testcase name="staff elimina un pago ANULADO y deja de existir en la BD (404 al consultarlo)" time="0.011956" classname="test"/>
+		<testcase name="un pago RECHAZADO con eventos de webhook se elimina y los eventos quedan como evidencia" time="0.019484" classname="test"/>
+		<testcase name="no elimina pagos PENDIENTES, APROBADOS ni REEMBOLSADOS (409 PAGO_NO_ELIMINABLE)" time="0.026702" classname="test"/>
+		<testcase name="solo staff: el dueño y un organizador reciben 403; sin sesión 401; id inexistente 404" time="0.015353" classname="test"/>
 	</testsuite>
-	<testsuite name="Rutas del API Gateway (/api/pagos)" time="0.272201" disabled="0" errors="0" tests="3" failures="0" skipped="0" hostname="vm">
-		<testcase name="las operaciones responden igual bajo /api/pagos y /api/v1/pagos" time="0.108299" classname="test"/>
-		<testcase name="GET /api/pagos/health responde sin token (para probar a través del Gateway)" time="0.004984" classname="test"/>
-		<testcase name="el webhook de Stripe también se recibe en /api/pagos/webhooks/stripe" time="0.035007" classname="test"/>
+	<testsuite name="Rutas del API Gateway (/api/pagos)" time="0.177295" disabled="0" errors="0" tests="3" failures="0" skipped="0" hostname="vm">
+		<testcase name="las operaciones responden igual bajo /api/pagos y /api/v1/pagos" time="0.075017" classname="test"/>
+		<testcase name="GET /api/pagos/health responde sin token (para probar a través del Gateway)" time="0.002949" classname="test"/>
+		<testcase name="el webhook de Stripe también se recibe en /api/pagos/webhooks/stripe" time="0.016653" classname="test"/>
 	</testsuite>
-	<testsuite name="Eventos en el broker (pago.*)" time="0.176808" disabled="0" errors="0" tests="5" failures="0" skipped="0" hostname="vm">
-		<testcase name="al aprobarse publica pago.realizado con los datos que necesita Entradas" time="0.023264" classname="test"/>
-		<testcase name="un webhook repetido por Stripe no vuelve a publicar el evento" time="0.016115" classname="test"/>
-		<testcase name="publica pago.rechazado (sesión expirada), pago.anulado y pago.reembolsado con su motivo" time="0.063874" classname="test"/>
-		<testcase name="por defecto la routing key es pago.realizado (guía del Platform Team); con BROKER_SEPARADOR=&amp;quot;_&amp;quot; es pago_realizado" time="0.000349" classname="test"/>
-		<testcase name="si el broker está caído el pago igual se aprueba (la publicación no bloquea el negocio)" time="0.072623" classname="test"/>
+	<testsuite name="Eventos en el broker (pago.*)" time="0.138147" disabled="0" errors="0" tests="5" failures="0" skipped="0" hostname="vm">
+		<testcase name="al aprobarse publica pago.realizado con los datos que necesita Entradas" time="0.013857" classname="test"/>
+		<testcase name="un webhook repetido por Stripe no vuelve a publicar el evento" time="0.011204" classname="test"/>
+		<testcase name="publica pago.rechazado (sesión expirada), pago.anulado y pago.reembolsado con su motivo" time="0.042102" classname="test"/>
+		<testcase name="por defecto la routing key es pago.realizado (guía del Platform Team); con BROKER_SEPARADOR=&amp;quot;_&amp;quot; es pago_realizado" time="0.000313" classname="test"/>
+		<testcase name="si el broker está caído el pago igual se aprueba (la publicación no bloquea el negocio)" time="0.070175" classname="test"/>
 	</testsuite>
-	<testsuite name="Auth ↔ Pagos v1.3: validar sesión (cookie jwt + x-api-key)" time="0.265087" disabled="0" errors="0" tests="7" failures="0" skipped="0" hostname="vm">
-		<testcase name="reenvía el header Cookie intacto y la x-api-key; usa el id y el rol que entrega Auth" time="0.060598" classname="test"/>
-		<testcase name="si Auth rechaza la sesión (401), Pagos responde 401" time="0.040327" classname="test"/>
-		<testcase name="x-api-key rechazada (403 de Auth) → 403; error interno de Auth (500) → 500" time="0.034599" classname="test"/>
-		<testcase name="el rol staff de Auth puede operar sobre pagos ajenos; organizador no" time="0.037049" classname="test"/>
-		<testcase name="fail-secure: si Auth no responde, 503 AUTH_NO_DISPONIBLE y no se crea el pago" time="0.027192" classname="test"/>
-		<testcase name="en cada petición consulta a Auth, aunque no venga cookie o venga un Bearer: Auth decide (401)" time="0.026995" classname="test"/>
-		<testcase name="staff consulta y reembolsa pagos ajenos, pero no los paga ni elige el destinatario" time="0.037774" classname="test"/>
+	<testsuite name="Auth ↔ Pagos v1.3: validar sesión (cookie jwt + x-api-key)" time="0.215381" disabled="0" errors="0" tests="7" failures="0" skipped="0" hostname="vm">
+		<testcase name="reenvía el header Cookie intacto y la x-api-key; usa el id y el rol que entrega Auth" time="0.054025" classname="test"/>
+		<testcase name="si Auth rechaza la sesión (401), Pagos responde 401" time="0.029381" classname="test"/>
+		<testcase name="x-api-key rechazada (403 de Auth) → 403; error interno de Auth (500) → 500" time="0.021684" classname="test"/>
+		<testcase name="el rol staff de Auth puede operar sobre pagos ajenos; organizador no" time="0.031809" classname="test"/>
+		<testcase name="fail-secure: si Auth no responde, 503 AUTH_NO_DISPONIBLE y no se crea el pago" time="0.020220" classname="test"/>
+		<testcase name="en cada petición consulta a Auth, aunque no venga cookie o venga un Bearer: Auth decide (401)" time="0.021170" classname="test"/>
+		<testcase name="staff consulta y reembolsa pagos ajenos, pero no los paga ni elige el destinatario" time="0.036606" classname="test"/>
 	</testsuite>
-	<testsuite name="Comprar para otra persona (destinatario)" time="0.069090" disabled="0" errors="0" tests="6" failures="0" skipped="0" hostname="vm">
-		<testcase name="la búsqueda por correo se retiró (Auth v1.3 no la expone): 404 de ruta" time="0.004965" classname="test"/>
-		<testcase name="el dueño registra un destinatario ingresado a mano; queda en el pago y en el evento pago.realizado" time="0.017512" classname="test"/>
-		<testcase name="el correo del destinatario es opcional: sin email queda a su nombre y el evento lleva email null" time="0.014961" classname="test"/>
-		<testcase name="valida los datos (RUT con dígito verificador) y solo lo permite al dueño con el pago PENDIENTE" time="0.018837" classname="test"/>
-		<testcase name="DELETE /{id_pago}/destinatario vuelve la entrada al comprador" time="0.012180" classname="test"/>
-		<testcase name="normaliza y verifica RUT chilenos" time="0.000293" classname="test"/>
+	<testsuite name="Comprar para otra persona (destinatario)" time="0.060566" disabled="0" errors="0" tests="6" failures="0" skipped="0" hostname="vm">
+		<testcase name="la búsqueda por correo se retiró (Auth v1.3 no la expone): 404 de ruta" time="0.004027" classname="test"/>
+		<testcase name="el dueño registra un destinatario ingresado a mano; queda en el pago y en el evento pago.realizado" time="0.014964" classname="test"/>
+		<testcase name="el correo del destinatario es opcional: sin email queda a su nombre y el evento lleva email null" time="0.014698" classname="test"/>
+		<testcase name="valida los datos (RUT con dígito verificador) y solo lo permite al dueño con el pago PENDIENTE" time="0.015753" classname="test"/>
+		<testcase name="DELETE /{id_pago}/destinatario vuelve la entrada al comprador" time="0.010621" classname="test"/>
+		<testcase name="normaliza y verifica RUT chilenos" time="0.000241" classname="test"/>
 	</testsuite>
-	<testsuite name="Promociones ↔ Pagos: código de descuento y evento pago.completado" time="0.237692" disabled="0" errors="0" tests="7" failures="0" skipped="0" hostname="vm">
-		<testcase name="guarda id_evento y nombre_codigo y los devuelve al consultar el pago" time="0.067516" classname="test"/>
-		<testcase name="al aprobarse publica pago.realizado (Entradas) y pago.completado (Promociones) con los campos del contrato" time="0.029053" classname="test"/>
-		<testcase name="sin código igual se publica pago.completado, con nombre_codigo null (Promociones lo ignora)" time="0.013237" classname="test"/>
-		<testcase name="un pago rechazado o anulado no publica pago.completado (no se consume el cupón)" time="0.011401" classname="test"/>
-		<testcase name="valida nombre_codigo (texto de hasta 50 caracteres); vacío o null = sin código" time="0.015926" classname="test"/>
-		<testcase name="idempotencia: reintentar sin código devuelve el mismo pago; con otro código es conflicto (409)" time="0.013040" classname="test"/>
-		<testcase name="con BROKER_CLAVE_PROMOCIONES vacío no se publica el evento para Promociones" time="0.000381" classname="test"/>
+	<testsuite name="Promociones ↔ Pagos: código de descuento y evento pago.completado" time="0.269969" disabled="0" errors="0" tests="7" failures="0" skipped="0" hostname="vm">
+		<testcase name="guarda id_evento y nombre_codigo y los devuelve al consultar el pago" time="0.080808" classname="test"/>
+		<testcase name="al aprobarse publica pago.realizado (Entradas) y pago.completado (Promociones) con los campos del contrato" time="0.028248" classname="test"/>
+		<testcase name="sin código igual se publica pago.completado, con nombre_codigo null (Promociones lo ignora)" time="0.016063" classname="test"/>
+		<testcase name="un pago rechazado o anulado no publica pago.completado (no se consume el cupón)" time="0.015306" classname="test"/>
+		<testcase name="valida nombre_codigo (texto de hasta 50 caracteres); vacío o null = sin código" time="0.017995" classname="test"/>
+		<testcase name="idempotencia: reintentar sin código devuelve el mismo pago; con otro código es conflicto (409)" time="0.017083" classname="test"/>
+		<testcase name="con BROKER_CLAVE_PROMOCIONES vacío no se publica el evento para Promociones" time="0.000419" classname="test"/>
 	</testsuite>
-	<testsuite name="Promociones ↔ Pagos: el código también puede venir desde Entradas" time="0.088107" disabled="0" errors="0" tests="2" failures="0" skipped="0" hostname="vm">
-		<testcase name="si Entradas informa el código en la reserva, Pagos lo guarda aunque no venga en el body" time="0.020162" classname="test"/>
-		<testcase name="si el código del body no coincide con el de Entradas responde 422 ORDEN_INCONSISTENTE" time="0.005031" classname="test"/>
+	<testsuite name="Promociones ↔ Pagos: el código también puede venir desde Entradas" time="0.091923" disabled="0" errors="0" tests="2" failures="0" skipped="0" hostname="vm">
+		<testcase name="si Entradas informa el código en la reserva, Pagos lo guarda aunque no venga en el body" time="0.029170" classname="test"/>
+		<testcase name="si el código del body no coincide con el de Entradas responde 422 ORDEN_INCONSISTENTE" time="0.005713" classname="test"/>
 	</testsuite>
-	<testcase name="RabbitMQ real: Pagos publica y otro servicio consume" time="0.000672" classname="test">
+	<testcase name="RabbitMQ real: Pagos publica y otro servicio consume" time="0.000309" classname="test">
 		<skipped type="skipped" message="sin RABBITMQ_URL_TEST"/>
 	</testcase>
-	<testcase name="RabbitMQ real: cola de verificación pagos.eventos (Evaluación 3, BR1)" time="0.000136" classname="test">
+	<testcase name="RabbitMQ real: cola de verificación pagos.eventos (Evaluación 3, BR1)" time="0.000045" classname="test">
 		<skipped type="skipped" message="sin RABBITMQ_URL_TEST"/>
 	</testcase>
-	<testsuite name="Validación de DTOs" time="0.015127" disabled="0" errors="0" tests="6" failures="0" skipped="0" hostname="vm">
-		<testcase name="acepta una orden de compra válida" time="0.003598" classname="test"/>
-		<testcase name="rechaza total negativo, decimal o como texto" time="0.003537" classname="test"/>
-		<testcase name="informa todos los campos obligatorios faltantes a la vez (id_evento es opcional)" time="0.000297" classname="test"/>
-		<testcase name="exige motivo de 3 a 255 caracteres para reembolsar" time="0.000288" classname="test"/>
-		<testcase name="valida que id_pago sea un UUID" time="0.002952" classname="test"/>
-		<testcase name="aplica valores por defecto y valida filtros del listado" time="0.000368" classname="test"/>
+	<testsuite name="Validación de DTOs" time="0.005710" disabled="0" errors="0" tests="6" failures="0" skipped="0" hostname="vm">
+		<testcase name="acepta una orden de compra válida" time="0.002401" classname="test"/>
+		<testcase name="rechaza total negativo, decimal o como texto" time="0.000380" classname="test"/>
+		<testcase name="informa todos los campos obligatorios faltantes a la vez (id_evento es opcional)" time="0.000334" classname="test"/>
+		<testcase name="exige motivo de 3 a 255 caracteres para reembolsar" time="0.000245" classname="test"/>
+		<testcase name="valida que id_pago sea un UUID" time="0.000834" classname="test"/>
+		<testcase name="aplica valores por defecto y valida filtros del listado" time="0.000411" classname="test"/>
 	</testsuite>
-	<testsuite name="JWT del Auth simulado (herramienta de desarrollo; Pagos no valida JWT)" time="0.001667" disabled="0" errors="0" tests="2" failures="0" skipped="0" hostname="vm">
-		<testcase name="verifica un token válido y devuelve sus claims" time="0.000738" classname="test"/>
-		<testcase name="rechaza firma alterada, secreto distinto y token expirado" time="0.000745" classname="test"/>
+	<testsuite name="JWT del Auth simulado (herramienta de desarrollo; Pagos no valida JWT)" time="0.002411" disabled="0" errors="0" tests="2" failures="0" skipped="0" hostname="vm">
+		<testcase name="verifica un token válido y devuelve sus claims" time="0.000887" classname="test"/>
+		<testcase name="rechaza firma alterada, secreto distinto y token expirado" time="0.001125" classname="test"/>
 	</testsuite>
-	<testsuite name="Integración Stripe (sin red)" time="0.055179" disabled="0" errors="0" tests="9" failures="0" skipped="0" hostname="vm">
-		<testcase name="codifica objetos anidados como formulario de Stripe" time="0.000400" classname="test"/>
-		<testcase name="crea el checkout en CLP sin multiplicar por 100" time="0.035811" classname="test"/>
-		<testcase name="crea el PaymentIntent del formulario en CLP y traduce su estado" time="0.007107" classname="test"/>
-		<testcase name="traduce el estado de la sesión y los errores de Stripe" time="0.003057" classname="test"/>
-		<testcase name="un monto bajo el mínimo de Stripe responde 422 MONTO_NO_PERMITIDO (no 502)" time="0.001282" classname="test"/>
-		<testcase name="una llave secreta rechazada se informa sin mostrar la llave" time="0.001486" classname="test"/>
-		<testcase name="si Stripe no responde a tiempo reintenta una vez con la misma Idempotency-Key" time="0.001033" classname="test"/>
-		<testcase name="si Stripe sigue sin responder tras el reintento responde 502 ERROR_PASARELA con el motivo" time="0.001144" classname="test"/>
-		<testcase name="acepta un webhook con firma válida y rechaza firmas inválidas o antiguas" time="0.001199" classname="test"/>
+	<testsuite name="Integración Stripe (sin red)" time="0.049946" disabled="0" errors="0" tests="9" failures="0" skipped="0" hostname="vm">
+		<testcase name="codifica objetos anidados como formulario de Stripe" time="0.000666" classname="test"/>
+		<testcase name="crea el checkout en CLP sin multiplicar por 100" time="0.036979" classname="test"/>
+		<testcase name="crea el PaymentIntent del formulario en CLP y traduce su estado" time="0.002208" classname="test"/>
+		<testcase name="traduce el estado de la sesión y los errores de Stripe" time="0.002001" classname="test"/>
+		<testcase name="un monto bajo el mínimo de Stripe responde 422 MONTO_NO_PERMITIDO (no 502)" time="0.000880" classname="test"/>
+		<testcase name="una llave secreta rechazada se informa sin mostrar la llave" time="0.001663" classname="test"/>
+		<testcase name="si Stripe no responde a tiempo reintenta una vez con la misma Idempotency-Key" time="0.001009" classname="test"/>
+		<testcase name="si Stripe sigue sin responder tras el reintento responde 502 ERROR_PASARELA con el motivo" time="0.000600" classname="test"/>
+		<testcase name="acepta un webhook con firma válida y rechaza firmas inválidas o antiguas" time="0.000763" classname="test"/>
 	</testsuite>
 	<!-- tests 109 -->
 	<!-- suites 23 -->
@@ -164,5 +164,5 @@
 	<!-- cancelled 0 -->
 	<!-- skipped 0 -->
 	<!-- todo 0 -->
-	<!-- duration_ms 5815.334505 -->
+	<!-- duration_ms 4875.138855 -->
 </testsuites>

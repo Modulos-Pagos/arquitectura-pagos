@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import https from 'node:https';
 import { errores } from '../../errores';
 import { registrarIntegracion } from '../../utils/log-integracion';
 import {
@@ -34,9 +35,47 @@ import {
  * Idempotency-Key, así que ante una falla de red o un tiempo de espera agotado se reintentan una vez sin
  * riesgo de cobro doble. Un monto que Stripe no acepta (p. ej. menor al mínimo de ~50 centavos de dólar)
  * responde 422 MONTO_NO_PERMITIDO en vez de 502.
+ *
+ * Latencia: Entradas espera a lo más 2000 ms por POST /transacciones (contrato), y desde el workstation abrir una
+ * conexión TLS nueva con Stripe toma ~1 s. Por eso la conexión con Stripe se mantiene abierta (keep-alive) y se
+ * "calienta" al arrancar y cada 20 s: así crear el PaymentIntent tarda lo que procesa Stripe, no el saludo TLS.
  */
 
 type Fetch = typeof fetch;
+
+/** Conexiones persistentes con Stripe (se reutiliza el saludo TCP/TLS entre llamadas). */
+const agenteStripe = new https.Agent({ keepAlive: true, keepAliveMsecs: 15_000, maxSockets: 20 });
+
+/** fetch mínimo sobre node:https con keep-alive (el fetch global cierra la conexión tras ~4 s sin uso). */
+export function fetchConConexionPersistente(agente: https.Agent = agenteStripe): Fetch {
+  return (async (url: string | URL | Request, init?: RequestInit) => {
+    const cuerpo = init?.body == null ? undefined : String(init.body);
+    const headers: Record<string, string | number> = { ...((init?.headers ?? {}) as Record<string, string>) };
+    if (cuerpo !== undefined) headers['Content-Length'] = Buffer.byteLength(cuerpo);
+    return new Promise<Response>((resolve, reject) => {
+      const req = https.request(
+        new URL(String(url)),
+        { method: init?.method ?? 'GET', headers, agent: agente, signal: init?.signal ?? undefined },
+        (res) => {
+          const partes: Buffer[] = [];
+          res.on('data', (c: Buffer) => partes.push(c));
+          res.on('error', reject);
+          res.on('end', () =>
+            resolve(
+              new Response(Buffer.concat(partes), {
+                status: res.statusCode ?? 502,
+                headers: { 'Content-Type': String(res.headers['content-type'] ?? 'application/json') },
+              }),
+            ),
+          );
+        },
+      );
+      req.on('error', reject);
+      if (cuerpo !== undefined) req.write(cuerpo);
+      req.end();
+    });
+  }) as Fetch;
+}
 
 export interface OpcionesStripe {
   secretKey: string;
@@ -50,6 +89,8 @@ export interface OpcionesStripe {
   toleranciaWebhookSeg?: number;
   fetchImpl?: Fetch;
   apiBase?: string;
+  /** false = no mantener la conexión caliente (por defecto se mantiene). */
+  mantenerConexion?: boolean;
 }
 
 /** Codifica objetos anidados con la notación de formularios de Stripe: a[b][0][c]=valor */
@@ -81,8 +122,17 @@ export class StripePasarela implements PasarelaPago {
   private readonly apiBase: string;
 
   constructor(private readonly opciones: OpcionesStripe) {
-    this.fetch = opciones.fetchImpl ?? fetch;
+    this.fetch = opciones.fetchImpl ?? fetchConConexionPersistente();
     this.apiBase = opciones.apiBase ?? 'https://api.stripe.com/v1';
+    if (!opciones.fetchImpl && opciones.mantenerConexion !== false) {
+      // Deja lista la conexión TLS al arrancar y la mantiene abierta (petición sin llave: Stripe responde 401 sin costo).
+      const calentar = () =>
+        this.fetch(this.apiBase, { method: 'GET', signal: AbortSignal.timeout(5000) })
+          .then((r) => r.arrayBuffer())
+          .catch(() => undefined);
+      void calentar();
+      setInterval(calentar, 20_000).unref();
+    }
   }
 
   async crearCheckout(datos: DatosCheckout): Promise<SesionCheckout> {
@@ -227,7 +277,8 @@ export class StripePasarela implements PasarelaPago {
           signal: AbortSignal.timeout(this.opciones.timeoutMs),
         });
       } catch (error) {
-        const tiempo = (error as Error).name === 'TimeoutError';
+        const causa = (error as { cause?: { name?: string } }).cause;
+        const tiempo = (error as Error).name === 'TimeoutError' || causa?.name === 'TimeoutError';
         const motivo = tiempo
           ? `Stripe no respondió en ${this.opciones.timeoutMs} ms (STRIPE_TIMEOUT_MS)`
           : `No se pudo contactar a Stripe (${(error as Error).message || 'sin red'})`;
