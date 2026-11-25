@@ -60,24 +60,26 @@ Vale 30%: entrega integrada (20%) y presentación (10%), con la misma rúbrica.
    comprobante APROBADO, sin escribir URLs a mano.
 7. **GitHub al día** (sección 3) antes de las 14:30.
 
-## 3. Pendientes en GitHub (Gestión)
+## 3. GitHub (Gestión) — estado al 25/11
 
-- Crear el milestone **"Entrega 4 - Entrega integrada en workstation"** (vence el 25/11) y asignarle, con responsable,
-  los issues de esta entrega:
-  - E4-1 Instalar la versión de `main` en workstation y verificar (Cristóbal).
-  - E4-2 Ejecutar la colección `Workstation-E4` en workstation y subir la evidencia (Ricardo).
-  - E4-3 Diagrama y consultas desde la base del workstation (Alonso).
-  - E4-4 Flujo del front común en workstation sin pasos manuales (Pablo).
-  - E4-5 Tablero, responsables y presentación (Simón).
-- **Cerrar** #35–#43 (Evaluación 3, verificada el 19/11) con un comentario que diga dónde está la evidencia.
-- **HU 3.1 Reembolso total:** está implementada (`POST /api/pagos/{id}/reembolso`) y la prueba R.3 la ejecuta en
-  workstation. Moverla al milestone de la Entrega 4 y cerrarla cuando R.3 pase en workstation.
-- **HU 3.3 Anulación** y **HU 3.4 Consulta de pagos:** el backend lo soporta (anular un pago PENDIENTE con el mismo
-  endpoint; listado `GET /api/pagos` con filtros), pero no hay pantalla. O se cierran como servicios de backend
-  probados, o se dejan en "Sprint futuro" con un comentario. Lo importante es que el estado diga la verdad.
-- **HU 4.1–4.6** (carrito, cerradas): asignarles el milestone en que se hicieron.
-- **INT-01…INT-05:** agregar *Definition of Done* y política de seguridad; cerrar INT-04 cuando Promociones
-  consuma `pago.completado` en workstation.
+Milestone [**Entrega 4 - Entrega integrada en workstation**](https://github.com/Modulos-Pagos/arquitectura-pagos/milestone/7)
+(vence el 25/11, 14:30). Cada issue tiene responsable, criterios en Gherkin, *Definition of Done* y política de seguridad.
+
+| Issue | Qué | Responsable | Estado |
+|---|---|---|---|
+| [#46](https://github.com/Modulos-Pagos/arquitectura-pagos/issues/46) E4-1 | Instalar `main` en workstation y verificar las integraciones | Cristóbal | Cerrado (verificado) |
+| [#44](https://github.com/Modulos-Pagos/arquitectura-pagos/issues/44) E4-2 | Ejecutar la colección `Workstation-E4` en workstation y subir la evidencia | Ricardo | Abierto: falta la ejecución en workstation |
+| [#48](https://github.com/Modulos-Pagos/arquitectura-pagos/issues/48) E4-3 | Diagrama y consultas desde la base del workstation | Alonso | Abierto: falta la captura desde `pagos-db` |
+| [#49](https://github.com/Modulos-Pagos/arquitectura-pagos/issues/49) E4-4 | Flujo de pago del front común sin pasos manuales | Pablo | Cerrado (verificado) |
+| [#45](https://github.com/Modulos-Pagos/arquitectura-pagos/issues/45) E4-5 | Tablero, responsables, entrega y presentación | Simón | Abierto hasta la presentación |
+| [#16](https://github.com/Modulos-Pagos/arquitectura-pagos/issues/16) HU 3.1 | Reembolso total (servicio para Entradas) | Cristóbal | Abierto: se cierra cuando R.3 pase en workstation |
+
+- **Hecho:** #35–#43 (Evaluación 3) cerrados; INT-01…INT-05 con *Definition of Done*, política de seguridad y estado de la
+  Entrega 4; INT-04 cerrado porque Promociones consume `pago.completado` en workstation.
+- **HU 3.3 y HU 3.4:** quedan en "Sprint futuro" con un comentario: el backend instalado lo soporta, pero falta acordar la
+  regla de reserva vencida con Entradas (3.3) y la pantalla de historial (3.4).
+- **HU 4.1–4.6 (carrito):** cerradas como *descartadas* el 28/09: Pagos no implementa carrito, recibe la orden ya armada
+  desde Entradas (INT-01). No llevan sprint porque no se hicieron.
 
 ## 4. Guion de la presentación (10 minutos)
 
